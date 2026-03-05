@@ -16,17 +16,16 @@ private:
     int64_t exponent;
 
     void normalize();
-
     static int compareMag(const BitString& a, const BitString& b);
     BitString truncate(int bits) const;
-
-    static const BitString POW5_N100;
 public:
     BitString();
     BitString(const bool sign, const std::vector<uint32_t>& mantissa, int64_t exponent);//TODO: hide
     BitString(const BitString& other);
     BitString(const std::string& s);
     BitString(const int32_t n);
+
+    const static BitString PI;
 
     // String conversions
     static BitString fromString(const std::string& s);
@@ -68,7 +67,6 @@ public:
     // Specials
     static BitString fact(const BitString& n);
     static BitString nextP(const BitString& n);
-    static BitString pi(int digits);
 
     // Vector utils
     static BitString avg(const std::vector<BitString>& v);
