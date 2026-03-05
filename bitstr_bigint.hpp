@@ -109,33 +109,4 @@ static void bigint_add_int(std::vector<uint32_t>& a, std::uint32_t b) {
     if (carry) a.push_back((uint32_t)carry);
 }
 
-static std::vector<uint32_t> string_to_bigint(const std::string& s) {
-    std::vector<uint32_t> result = {0};
-    for (char c : s) {
-        int digit = c - '0';
-        BigInt::bigint_mul_int(result, 10);
-        BigInt::bigint_add_int(result, digit);
-    }
-    return result;
-}
-
-static std::string bigint_to_string(const std::vector<uint32_t>& a) {
-    if (a.size() == 1 && a[0] == 0) return "0";
-    std::vector<uint32_t> num = a;
-    std::string digits;
-    while (!(num.size() == 1 && num[0] == 0)) {
-        uint64_t remainder = 0;
-        for (int i = (int)num.size() - 1; i >= 0; --i) {
-            uint64_t current = (remainder << 32) | num[i];
-            num[i] = (uint32_t)(current / 10);
-            remainder = current % 10;
-        }
-        digits.push_back('0' + (char)remainder);
-        while (num.size() > 1 && num.back() == 0)
-            num.pop_back();
-    }
-    std::reverse(digits.begin(), digits.end());
-    return digits;
-}
-
 } // namespace

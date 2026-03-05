@@ -5,102 +5,87 @@
 using namespace std;
 using namespace BigInt;
 
+// Determines if should round up based on the quotient bits
+static bool shouldRoundUp(const vector<uint32_t>& quotient, int discardBits) {
+    if (discardBits <= 0) return false;
+    
+    int roundBitPos = discardBits - 1;
+    int roundWord = roundBitPos / 32;
+    int roundShift = roundBitPos % 32;
+    
+    if (roundWord >= (int)quotient.size()) return false;
+    
+    bool roundBit = (quotient[roundWord] >> roundShift) & 1;
+    if (!roundBit) return false;
+    
+    // Check if there are any lower bits set (means > 1/2)
+    uint32_t lowMask = quotient[roundWord] & ((1U << roundShift) - 1);
+    for (int i = 0; i < roundWord; ++i) {
+        if (quotient[i] != 0) return true;
+    }
+    if (lowMask != 0) return true;
+    
+    // Tiebreaker - round to even
+    int lastKeptWord = discardBits / 32;
+    int lastKeptShift = discardBits % 32;
+    if (lastKeptWord < (int)quotient.size()) {
+        return (quotient[lastKeptWord] >> lastKeptShift) & 1;
+    }
+    return false;
+}
+
 BitString BitString::div(const BitString& a, const BitString& b, int precision) {
-    if (b.isZero()) throw std::domain_error("Division by zero");
+    if (b.isZero()) throw domain_error("Division by zero");
     if (a.isZero()) return BitString();
 
-    bool result_sign = a.sign ^ b.sign;
+    bool sign = a.sign ^ b.sign;
 
     // Work with absolute mantissas
-    std::vector<uint32_t> A = a.mantissa;
-    std::vector<uint32_t> B = b.mantissa;
+    vector<uint32_t> aMantissa = a.mantissa;
+    vector<uint32_t> bMantissa = b.mantissa;
 
     // Choose p so that the quotient has at least precision+1 bits.
-    // p = precision + 64 + bit_length(B) is a safe overestimate.
-    int p = precision + 64 + bit_length(B);
+    int p = precision + bit_length(bMantissa);
 
-    std::vector<uint32_t> dividend = A;
+    vector<uint32_t> dividend = aMantissa;
     leftShift(dividend, p);
-    std::vector<uint32_t> divisor = B;
 
-    std::vector<uint32_t> Q, R;
-    div_bin(dividend, divisor, Q, R);
+    vector<uint32_t> quotient, remainder;
+    div_bin(dividend, bMantissa, quotient, remainder);
 
-    int qbits = bit_length(Q);
-    // If we didn't get enough bits, increase p and try again (should rarely happen)
-    while (qbits < precision + 1) {
-        p += (precision + 1 - qbits) + 32;
-        dividend = A;
-        leftShift(dividend, p);
-        div_bin(dividend, divisor, Q, R);
-        qbits = bit_length(Q);
-    }
+    int quotientBits = bit_length(quotient);
+    int discardBits = quotientBits - precision;
 
-    // Number of extra low bits to discard
-    int rbits = qbits - precision;
-    bool round_up = false;
+    // Extract the highest precision bits
+    vector<uint32_t> mantissa = quotient;
+    rightShift(mantissa, discardBits);
 
-    if (rbits > 0) {
-        // Determine the most significant discarded bit (round bit)
-        int round_bit_pos = rbits - 1;
-        int round_word = round_bit_pos / 32;
-        int round_shift = round_bit_pos % 32;
-        bool round_bit = false;
-        uint32_t low_mask = 0;
-        if (round_word < (int)Q.size()) {
-            round_bit = (Q[round_word] >> round_shift) & 1;
-            low_mask = Q[round_word] & ((1U << round_shift) - 1);
-        }
-        bool any_lower = false;
-        for (int i = 0; i < round_word; ++i) {
-            if (Q[i] != 0) { any_lower = true; break; }
-        }
-        if (!any_lower && low_mask != 0) any_lower = true;
-
-        if (round_bit) {
-            if (any_lower) {
-                round_up = true;               // > 1/2
-            } else {
-                // exactly half: round to even based on the last kept bit
-                int last_kept_pos = rbits;
-                int last_kept_word = last_kept_pos / 32;
-                int last_kept_shift = last_kept_pos % 32;
-                bool last_kept_bit = false;
-                if (last_kept_word < (int)Q.size()) {
-                    last_kept_bit = (Q[last_kept_word] >> last_kept_shift) & 1;
-                }
-                if (last_kept_bit) round_up = true;
-            }
-        }
-    }
-
-    // Extract the top 'precision' bits
-    std::vector<uint32_t> mant = Q;
-    rightShift(mant, rbits);
-
-    if (round_up) {
+    if (shouldRoundUp(quotient, discardBits)) {
         uint64_t carry = 1;
-        for (size_t i = 0; i < mant.size() && carry; ++i) {
-            uint64_t sum = uint64_t(mant[i]) + carry;
-            mant[i] = (uint32_t)sum;
+        for (size_t i = 0; i < mantissa.size() && carry; ++i) {
+            uint64_t sum = uint64_t(mantissa[i]) + carry;
+            mantissa[i] = (uint32_t)sum;
             carry = sum >> 32;
         }
-        if (carry) mant.push_back((uint32_t)carry);
-        // If rounding caused a new most‑significant word, we may have exceeded 'precision' bits
-        int new_bits = bit_length(mant);
-        if (new_bits > precision) {
-            rightShift(mant, 1);
-            rbits += 1;
+        if (carry) mantissa.push_back((uint32_t)carry);
+        
+        // If rounding caused overflow, shift right and adjust exponent
+        int newBits = bit_length(mantissa);
+        if (newBits > precision) {
+            rightShift(mantissa, 1);
+            discardBits += 1;
         }
     }
 
     // Remove possible leading zeros
-    while (mant.size() > 1 && mant.back() == 0) mant.pop_back();
+    while (mantissa.size() > 1 && mantissa.back() == 0) {
+        mantissa.pop_back();
+    }
 
-    // Result exponent: a.exponent - b.exponent - p + rbits
-    int64_t result_exp = a.exponent - b.exponent - p + rbits;
+    // Result exponent: a.exponent - b.exponent - p + discardBits
+    int64_t exp = a.exponent - b.exponent - p + discardBits;
 
-    BitString result(result_sign, mant, result_exp);
+    BitString result(sign, mantissa, exp);
     result.normalize();
     return result;
 }
