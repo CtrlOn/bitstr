@@ -64,7 +64,7 @@ int BitString::compareMag(const BitString& a, const BitString& b) {
     return 0;
 }
 
-/// TODO: make <<
+/// TODO: make operator<<=
 void BitString::leftShift(vector<uint32_t>& v, int bits) {
     if (bits == 0) return;
     int intShift = bits / 32;
@@ -82,7 +82,7 @@ void BitString::leftShift(vector<uint32_t>& v, int bits) {
     if (intShift) v.insert(v.begin(), intShift, 0);
 }
 
-/// TODO: make >>
+/// TODO: make operator>>=
 void BitString::rightShift(vector<uint32_t>& v, int bits) {
     if (bits == 0) return;
     int intShift = bits / 32;
