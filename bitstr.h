@@ -28,7 +28,9 @@ public:
     const static BitString PI;
 
     // String conversions
+    static BitString fromString(const std::string& s, int bitsPrecision);
     static BitString fromString(const std::string& s);
+    static std::string toString(const BitString& value, int decFracDigits);
     static std::string toString(const BitString& value);
 
     BitString operator+(const BitString& other) const;

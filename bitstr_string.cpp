@@ -38,7 +38,7 @@ static string bigIntToString(const vector<uint32_t>& num) {
     return digits;
 }
 
-BitString BitString::fromString(const string& str) {
+BitString BitString::fromString(const string& str, int bitsPrecision) {
     size_t i = 0;
     bool sign = false;
     if (str[i] == '-') {
@@ -84,7 +84,7 @@ BitString BitString::fromString(const string& str) {
 
     vector<uint32_t> fracBits = {0};
     vector<uint32_t> remainder = numerator;
-    for (int bit = 0; bit < BIN_FRAC_IN; ++bit) {
+    for (int bit = 0; bit < bitsPrecision; ++bit) {
         BitString::leftShift(remainder, 1);
         BitString::leftShift(fracBits, 1);
         if (cmp_vec(remainder, denominator) >= 0) {
@@ -114,15 +114,19 @@ BitString BitString::fromString(const string& str) {
     }
 
     vector<uint32_t> integerShifted = integerPart;
-    BitString::leftShift(integerShifted, BIN_FRAC_IN);
+    BitString::leftShift(integerShifted, bitsPrecision);
     vector<uint32_t> mantissa = bigint_add(integerShifted, fracBits);
 
-    BitString result(sign, mantissa, -BIN_FRAC_IN);
+    BitString result(sign, mantissa, -bitsPrecision);
     result.normalize();
     return result;
 }
 
-string BitString::toString(const BitString& value) {
+BitString BitString::fromString(const string& s) {
+    return fromString(s, BIN_FRAC_IN);
+}
+
+string BitString::toString(const BitString& value, int decFracDigits) {
     if (value.isZero()) return "0.0";
 
     string result;
@@ -152,7 +156,7 @@ string BitString::toString(const BitString& value) {
     }
 
     string fracDigits;
-    for (int i = 0; i < DEC_FRAC_OUT + 1; ++i) {
+    for (int i = 0; i < decFracDigits + 1; ++i) {
         bigint_mul_int(remainder, 10);
         vector<uint32_t> digitVec, newRem;
         div_bin(remainder, denominator, digitVec, newRem);
@@ -163,12 +167,12 @@ string BitString::toString(const BitString& value) {
             break;
         }
     }
-    while (fracDigits.size() < DEC_FRAC_OUT + 1) {
+    while (fracDigits.size() < decFracDigits + 1) {
         fracDigits.push_back('0');
     }
 
-    string frac = fracDigits.substr(0, DEC_FRAC_OUT);
-    char nextDigit = fracDigits[DEC_FRAC_OUT];
+    string frac = fracDigits.substr(0, decFracDigits);
+    char nextDigit = fracDigits[decFracDigits];
     if (nextDigit >= '5') {
         int carry = 1;
         for (int i = (int)frac.size() - 1; i >= 0 && carry; --i) {
@@ -185,7 +189,7 @@ string BitString::toString(const BitString& value) {
             vector<uint32_t> intBig = stringToBigInt(intStr);
             bigint_add_int(intBig, 1);
             intStr = bigIntToString(intBig);
-            frac = string(DEC_FRAC_OUT, '0');
+            frac = string(decFracDigits, '0');
         }
     }
 
@@ -201,4 +205,8 @@ string BitString::toString(const BitString& value) {
     }
 
     return result;
+}
+
+string BitString::toString(const BitString& value) {
+    return toString(value, DEC_FRAC_OUT);
 }

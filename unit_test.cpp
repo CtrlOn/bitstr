@@ -257,6 +257,7 @@ int main() {
 
         //Check PI
         checkEq("PI 100 digits", "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068", BitString::toString(BitString::PI)); //ends with 7 but roundup to 8 cuz 211706 798...
+        
 
     } catch (const exception& ex) {
         cout << "UNEXPECTED EXCEPTION: " << ex.what() << '\n';
