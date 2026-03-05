@@ -50,9 +50,9 @@ BitString BitString::operator*(const BitString& other) const {
     return mul(*this, other);
 }
 
-/// WARNING - hardcoded precision of 340 bits (100 decimal digits)
+/// WARNING - hardcoded precision, use div(a,b,precision) for more control
 BitString BitString::operator/(const BitString& other) const {
-    return div(*this, other, 340);
+    return div(*this, other);
 }
 
 // Left/Right shifts are procedural, no ops for them.

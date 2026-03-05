@@ -2,6 +2,8 @@
 #include "bitstr.h"
 #include "bitstr_bigint.hpp"
 
+#define DIV_PRECISION 340 // How many bits of precision to use for division (99 decimal digits + guard bits)
+
 using namespace std;
 using namespace BigInt;
 
@@ -88,4 +90,8 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
     BitString result(sign, mantissa, exp);
     result.normalize();
     return result;
+}
+
+BitString BitString::div(const BitString& a, const BitString& b) {
+    return div(a, b, DIV_PRECISION);
 }

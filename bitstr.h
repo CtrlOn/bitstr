@@ -56,6 +56,7 @@ public:
     static void rightShift(std::vector<uint32_t>& v, int bits);
     static BitString mul(const BitString& a, const BitString& b);
     static BitString div(const BitString& a, const BitString& b, int precision);
+    static BitString div(const BitString& a, const BitString& b);
     static BitString add(const BitString& a, const BitString& b);
 
     // Trigonometrics

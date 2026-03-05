@@ -26,3 +26,7 @@ const BitString BitString::PI = {
     },
     -510
 };
+
+BitString BitString::sin(const BitString& n) {
+    return BitString(); // TODO:
+}

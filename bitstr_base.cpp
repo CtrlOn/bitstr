@@ -179,6 +179,10 @@ BitString BitString::mul(const BitString& a, const BitString& b) {
     return result;
 }
 
+BitString BitString::fact(const BitString& n) {
+    return BitString(); // TODO:
+}
+
 bool BitString::isZero() const {
     return mantissa.size() == 1 && mantissa[0] == 0;
 }
