@@ -1,3 +1,7 @@
+# The usual
 *.txt
 *.exe
 .vscode/
+
+# Anonymous lecturer data protection 0_0
+test.cpp
