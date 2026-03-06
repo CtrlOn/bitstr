@@ -1,5 +1,6 @@
 // Base arithmetics and utils
 #include "bitstr.h"
+#include "bigint.h"
 
 using namespace std;
 
@@ -124,17 +125,7 @@ BitString BitString::add(const BitString& l, const BitString& r) {
     if (a.sign == b.sign) {
         // Magnitude addition
         result.sign = a.sign;
-        size_t n = max(a.mantissa.size(), b.mantissa.size());
-        result.mantissa.resize(n);
-        uint64_t carry = 0;
-        for (size_t i = 0; i < n; ++i) {
-            uint64_t av = i < a.mantissa.size() ? a.mantissa[i] : 0;
-            uint64_t bv = i < b.mantissa.size() ? b.mantissa[i] : 0;
-            uint64_t sum = av + bv + carry;
-            result.mantissa[i] = (uint32_t)sum;
-            carry = sum >> 32;
-        }
-        if (carry) result.mantissa.push_back(carry);
+        result.mantissa = BigInt::bigint_add(a.mantissa, b.mantissa);
     } else {
         // Magnitude subtraction
         int cmp = compareMag(a, b);
@@ -143,15 +134,7 @@ BitString BitString::add(const BitString& l, const BitString& r) {
         const BitString* low  = &b;
         if (cmp < 0) swap(great, low);
         result.sign = great->sign;
-        result.mantissa = great->mantissa;
-        uint64_t borrow = 0;
-        for (size_t i = 0; i < result.mantissa.size(); ++i) {
-            uint64_t av = result.mantissa[i];
-            uint64_t bv = i < low->mantissa.size() ? low->mantissa[i] : 0;
-            uint64_t sub = av - bv - borrow;
-            borrow = (av < bv + borrow) ? 1 : 0;
-            result.mantissa[i] = (uint32_t)sub;
-        }
+        result.mantissa = BigInt::bigint_sub(great->mantissa, low->mantissa);
     }
 
     result.normalize();

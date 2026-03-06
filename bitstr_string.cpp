@@ -1,6 +1,6 @@
 // bitstr_string.cpp
 #include "bitstr.h"
-#include "bitstr_bigint.hpp"
+#include "bigint.h"
 
 #define DEC_FRAC_OUT 99 // How many decimal digits after comma to output
 #define BIN_FRAC_IN 340 // How many binary digits after comma to input (99 * log2(10) + guard bits)
@@ -87,14 +87,14 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
     for (int bit = 0; bit < bitsPrecision; ++bit) {
         BitString::leftShift(remainder, 1);
         BitString::leftShift(fracBits, 1);
-        if (cmp_vec(remainder, denominator) >= 0) {
+        if (bigint_cmp(remainder, denominator) >= 0) {
             bigint_add_int(fracBits, 1);
-            remainder = sub_vec(remainder, denominator);
+            remainder = bigint_sub(remainder, denominator);
         }
     }
 
     BitString::leftShift(remainder, 1);
-    int cmp = cmp_vec(remainder, denominator);
+    int cmp = bigint_cmp(remainder, denominator);
     bool roundUp = false;
     if (cmp > 0) {
         roundUp = true;
@@ -147,7 +147,7 @@ string BitString::toString(const BitString& value, int decFracDigits) {
     }
 
     vector<uint32_t> intPart, remainder;
-    div_bin(numerator, denominator, intPart, remainder);
+    bigint_div(numerator, denominator, intPart, remainder);
     string intStr = bigIntToString(intPart);
 
     if (remainder.empty() || (remainder.size() == 1 && remainder[0] == 0)) {
@@ -159,7 +159,7 @@ string BitString::toString(const BitString& value, int decFracDigits) {
     for (int i = 0; i < decFracDigits + 1; ++i) {
         bigint_mul_int(remainder, 10);
         vector<uint32_t> digitVec, newRem;
-        div_bin(remainder, denominator, digitVec, newRem);
+        bigint_div(remainder, denominator, digitVec, newRem);
         uint32_t digit = digitVec.empty() ? 0 : digitVec[0];
         fracDigits.push_back('0' + (char)digit);
         remainder = newRem;

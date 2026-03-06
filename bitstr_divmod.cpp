@@ -1,6 +1,6 @@
 // Division and Modulo
 #include "bitstr.h"
-#include "bitstr_bigint.hpp"
+#include "bigint.h"
 
 #define DIV_PRECISION 340 // How many bits of precision to use for division (99 decimal digits + guard bits)
 
@@ -53,7 +53,7 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
     leftShift(dividend, p);
 
     vector<uint32_t> quotient, remainder;
-    div_bin(dividend, bMantissa, quotient, remainder);
+    bigint_div(dividend, bMantissa, quotient, remainder);
 
     int quotientBits = bit_length(quotient);
     int discardBits = quotientBits - precision;
