@@ -258,7 +258,15 @@ int main() {
         //Check PI
         checkEq("PI 100 digits", "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068", BitString::toString(BitString::PI)); //ends with 7 but roundup to 8 cuz 211706 798...
         
-
+        //Test factorial
+        checkEq("factorial 0", "1.0", BitString::toString(BitString::fact(BitString::fromString("0"))));
+        checkEq("factorial 1", "1.0", BitString::toString(BitString::fact(BitString::fromString("1"))));
+        checkEq("factorial 5", "120.0", BitString::toString(BitString::fact(BitString::fromString("5"))));
+        checkEq("factorial 10", "3628800.0", BitString::toString(BitString::fact(BitString::fromString("10"))));
+        checkEq("factorial 20", "2432902008176640000.0", BitString::toString(BitString::fact(BitString::fromString("20"))));
+        checkEq("factorial 50", "30414093201713378043612608166064768844377641568960512000000000000.0", BitString::toString(BitString::fact(BitString::fromString("50"))));
+        checkEq("factorial 100", "93326215443944152681699238856266700490715968264381621468592963895217599993229915608941463976156518286253697920827223758251185210916864000000000000000000000000.0", BitString::toString(BitString::fact(BitString::fromString("100"))));
+        
     } catch (const exception& ex) {
         cout << "UNEXPECTED EXCEPTION: " << ex.what() << '\n';
         return 2;

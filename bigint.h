@@ -20,18 +20,15 @@ void bigint_add_pow2(std::vector<uint32_t>& v, int bit);
 /// TODO: optimize this with higher shifts
 void bigint_div(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b, std::vector<uint32_t>& quot, std::vector<uint32_t>& rem);
 
+void bigint_mul_int(std::vector<uint32_t>& a, std::uint32_t b);
+
+void bigint_add_int(std::vector<uint32_t>& a, std::uint32_t b);
+
 std::vector<uint32_t> bigint_add(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b);
 
 std::vector<uint32_t> bigint_sub(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b);
 
-/// Multiplies two big integers
 std::vector<uint32_t> bigint_mul(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b);
-
-/// Multiplies a big integer by a 32-bit integer
-void bigint_mul_int(std::vector<uint32_t>& a, std::uint32_t b);
-
-/// Adds a 32-bit integer to a big integer
-void bigint_add_int(std::vector<uint32_t>& a, std::uint32_t b);
 
 } // namespace
 
