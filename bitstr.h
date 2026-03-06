@@ -58,6 +58,7 @@ public:
     static BitString mul(const BitString& a, const BitString& b);
     static BitString div(const BitString& a, const BitString& b, int precision);
     static BitString div(const BitString& a, const BitString& b);
+    static BitString mod(const BitString& a, const BitString& b);
     static BitString add(const BitString& a, const BitString& b);
 
     // Trigonometrics

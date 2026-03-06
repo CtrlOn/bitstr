@@ -67,93 +67,24 @@ void bigint_add_pow2(std::vector<uint32_t>& v, int bit) {
 }
 
 void bigint_div(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b, std::vector<uint32_t>& quot, std::vector<uint32_t>& rem) {
-    if (b.empty() || (b.size() == 1 && b[0] == 0))
-        throw std::domain_error("Division by zero");
-    if (a.empty() || (a.size() == 1 && a[0] == 0)) {
-        quot = {0};
-        rem = {0};
-        return;
-    }
-    int cmp = bigint_cmp(a, b);
-    if (cmp < 0) {
+    if (bigint_cmp(a, b) < 0) {
         quot = {0};
         rem = a;
         return;
     }
-    if (cmp == 0) {
-        quot = {1};
-        rem = {0};
-        return;
-    }
-
-    // Normalize so that the most significant word of b has its high bit set
-    int norm_shift = 0;
-    uint32_t b_msb = b.back();
-    while ((b_msb & 0x80000000) == 0) {
-        b_msb <<= 1;
-        norm_shift++;
-    }
-    std::vector<uint32_t> a_norm = a;
-    std::vector<uint32_t> b_norm = b;
-    if (norm_shift > 0) {
-        BitString::leftShift(a_norm, norm_shift);
-        BitString::leftShift(b_norm, norm_shift);
-    }
-    // Add a leading zero word to a_norm to simplify indexing
-    a_norm.push_back(0);
-    int m = (int)a_norm.size();
-    int n = (int)b_norm.size();
-    // Quotient length = m - n
-    quot.assign(m - n, 0);
-    std::vector<uint32_t> r = a_norm;   // remainder (will be modified)
-
-    for (int i = m - n - 1; i >= 0; --i) {
-        // Extract the current slice of r (n+1 words starting at i)
-        std::vector<uint32_t> slice(r.begin() + i, r.begin() + i + n + 1);
-
-        // Guess quotient word using top two words of slice and top word of divisor
-        uint64_t r_top = ((uint64_t)slice[n] << 32) | slice[n - 1];
-        uint64_t b_top = b_norm.back();
-        uint64_t qhat = r_top / b_top;
-        if (qhat > 0xFFFFFFFF) qhat = 0xFFFFFFFF;
-
-        // Compute product = qhat * b_norm, padded to n+1 words
-        std::vector<uint32_t> prod = b_norm;
-        bigint_mul_int(prod, (uint32_t)qhat);
-        prod.resize(n + 1, 0);
-
-        // Adjust qhat if product is too large
-        while (bigint_cmp(prod, slice) > 0) {
-            qhat--;
-            prod = b_norm;
-            bigint_mul_int(prod, (uint32_t)qhat);
-            prod.resize(n + 1, 0);
+    int lenA = bit_length(a);
+    int lenB = bit_length(b);
+    int qbits = lenA - lenB; // max possible bit index of quotient
+    quot.assign(1, 0);
+    rem = a;
+    for (int i = qbits; i >= 0; --i) {
+        std::vector<uint32_t> Bshift = b;
+        BitString::leftShift(Bshift, i);
+        if (bigint_cmp(rem, Bshift) >= 0) {
+            rem = bigint_sub(rem, Bshift);
+            bigint_add_pow2(quot, i);
         }
-
-        // Subtract product from the current slice of r
-        int64_t borrow = 0;
-        for (int j = 0; j <= n; ++j) {
-            uint64_t diff = (uint64_t)r[i + j] - prod[j] - borrow;
-            if (diff > 0xFFFFFFFF) {
-                diff += 0x100000000;
-                borrow = 1;
-            } else {
-                borrow = 0;
-            }
-            r[i + j] = (uint32_t)diff;
-        }
-        // borrow must be zero because product <= slice
-        quot[i] = (uint32_t)qhat;
     }
-
-    // Remove the extra zero word from r
-    r.pop_back();
-    // Unnormalize the remainder
-    if (norm_shift > 0) {
-        BitString::rightShift(r, norm_shift);
-    }
-    rem = r;
-    // Remove leading zeros from quotient and remainder
     while (quot.size() > 1 && quot.back() == 0) quot.pop_back();
     while (rem.size() > 1 && rem.back() == 0) rem.pop_back();
 }

@@ -276,6 +276,12 @@ int main() {
         checkEq("double constructor 1e20", "100000000000000000000.0", BitString::toString(BitString(1e20)));
         checkEq("double constructor 1e-20", "0.00000000000000000000999999999999999945153271454209571651729503702787392447107715776066783064379706", BitString::toString(BitString(1e-20)));
 
+        //test modulo
+        checkEq("mod 10%3", "1.0", BitString::toString(BitString::mod(BitString::fromString("10"), BitString::fromString("3"))));
+        checkEq("mod 20%6", "2.0", BitString::toString(BitString::mod(BitString::fromString("20"), BitString::fromString("6"))));
+        checkEq("mod 12345678901234567890%1234567890123456789", "0.0", BitString::toString(BitString::mod(BitString::fromString("12345678901234567890"), BitString::fromString("1234567890123456789"))));
+        checkEq("mod 12345678901234567891%1234567890123456789", "1.0", BitString::toString(BitString::mod(BitString::fromString("12345678901234567891"), BitString::fromString("1234567890123456789"))));
+        checkEq("mod 100000000000000000000%42", "16.0", BitString::toString(BitString::mod(BitString::fromString("100000000000000000000"), BitString::fromString("42"))));
     } catch (const exception& ex) {
         cout << "UNEXPECTED EXCEPTION: " << ex.what() << '\n';
         return 2;

@@ -95,3 +95,35 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
 BitString BitString::div(const BitString& a, const BitString& b) {
     return div(a, b, DIV_PRECISION);
 }
+
+BitString BitString::mod(const BitString& a, const BitString& b) {
+    if (b.isZero())
+        throw std::domain_error("Modulo by zero");
+
+    // Remainder takes the sign of the dividend
+    bool resultSign = a.sign;
+
+    // Work with absolute values
+    BitString absA = a;
+    BitString absB = b;
+    absA.sign = false;
+    absB.sign = false;
+
+    // Align exponents to the smaller one so both become integers
+    int64_t minExp = std::min(absA.exponent, absB.exponent);
+    std::vector<uint32_t> aMant = absA.mantissa;
+    std::vector<uint32_t> bMant = absB.mantissa;
+
+    if (absA.exponent > minExp)
+        leftShift(aMant, (int)(absA.exponent - minExp));
+    if (absB.exponent > minExp)
+        leftShift(bMant, (int)(absB.exponent - minExp));
+
+    // Compute integer remainder
+    std::vector<uint32_t> quot, rem;
+    bigint_div(aMant, bMant, quot, rem);
+
+    BitString result(resultSign, rem, minExp);
+    result.normalize();
+    return result;
+}
