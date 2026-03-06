@@ -24,6 +24,7 @@ public:
     BitString(const BitString& other);
     BitString(const std::string& s);
     BitString(const int32_t n);
+    BitString(const double d);
 
     const static BitString PI;
 
@@ -68,7 +69,7 @@ public:
     static BitString sqrt(const BitString& n);
 
     // Specials
-    static BitString fact(const BitString& n);
+    static BitString fact(const uint32_t n);
     static BitString nextP(const BitString& n);
 
     // Vector utils

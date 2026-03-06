@@ -162,19 +162,11 @@ BitString BitString::mul(const BitString& a, const BitString& b) {
     return result;
 }
 
-BitString BitString::fact(const BitString& n) {
-    if (n.isZero()) return BitString(1);
-    if (n.sign) throw domain_error("Factorial is not defined for negative numbers");
-    if (n.exponent < 0) throw domain_error("Factorial is not defined for non-integers");
-
-    // Convert Bitstr to int (doesn't matter if overflows, it's not like we can compute INT_MAX before next big bang)
-    if (n.mantissa.size() > 1) throw domain_error("Factorial is too large");
-    uint32_t nInt = n.mantissa[0] << n.exponent;
-
+BitString BitString::fact(const uint32_t n) {
     BitString result(1);
-    
-    while (nInt > 1) {
-        BigInt::bigint_mul_int(result.mantissa, nInt--);
+    int i = n;
+    while (i > 1) {
+        BigInt::bigint_mul_int(result.mantissa, i--);
     }
     return result;
 }
