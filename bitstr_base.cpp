@@ -171,6 +171,13 @@ BitString BitString::fact(const uint32_t n) {
     return result;
 }
 
+BitString BitString::abs(const BitString& x) {
+    BitString result = x;
+    result.sign = false;
+    return result;
+}
+
+
 bool BitString::isZero() const {
     return mantissa.size() == 1 && mantissa[0] == 0;
 }

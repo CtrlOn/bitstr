@@ -52,21 +52,26 @@ public:
     bool operator<(const BitString& other) const;
     bool operator>(const BitString& other) const;
 
-    // Base arithmetics
+    // Bitwise operations
     static void leftShift(std::vector<uint32_t>& v, int bits);
     static void rightShift(std::vector<uint32_t>& v, int bits);
+
+    // Base arithmetics
     static BitString mul(const BitString& a, const BitString& b);
     static BitString div(const BitString& a, const BitString& b, int precision);
     static BitString div(const BitString& a, const BitString& b);
     static BitString mod(const BitString& a, const BitString& b);
     static BitString add(const BitString& a, const BitString& b);
+    static BitString abs(const BitString& a);
 
     // Trigonometrics
     static BitString sin(const BitString& n);
 
     // Exponentials
     static BitString pow(const BitString& n, int e);
+    static BitString ln(const BitString& n, int precision);
     static BitString ln(const BitString& n);
+    static BitString sqrt(const BitString& n, int precision);
     static BitString sqrt(const BitString& n);
 
     // Specials
@@ -76,7 +81,7 @@ public:
     // Vector utils
     static BitString avg(const std::vector<BitString>& v);
     static int find(const std::vector<BitString>& v, const BitString& target);
-    static void sort(std::vector<BitString>& v);
+    static void bubbleSort(std::vector<BitString>& v);
 
     // Properties
     bool isZero() const;
