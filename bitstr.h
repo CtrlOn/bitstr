@@ -29,7 +29,7 @@ public:
     const static BitString PI;
     const static BitString TAU;
     const static BitString HALF_PI;
-    const static BitString QUARTER_PI;
+    const static BitString LN_2;
 
     // String conversions
     static BitString fromString(const std::string& s, int bitsPrecision);
@@ -61,7 +61,7 @@ public:
     static BitString div(const BitString& a, const BitString& b);
     static BitString mod(const BitString& a, const BitString& b);
     static BitString rem(const BitString& a, const BitString& b);
-    
+
     static BitString add(const BitString& a, const BitString& b);
 
     static BitString abs(const BitString& a);

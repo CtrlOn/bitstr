@@ -268,6 +268,7 @@ int main() {
 
         //Check PI
         checkEq("PI 100 digits", "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068", BitString::toString(BitString::PI)); //ends with 7 but roundup to 8 cuz 211706 798...
+        checkEq("LN_2 100 digits", "0.693147180559945309417232121458176568075500134360255254120680009493393621969694715605863326996418688", BitString::toString(BitString::LN_2)); //ends with 7 but roundup to 8 cuz 211706 798...
         
         //Test factorial
         checkEq("factorial 0", "1.0", BitString::toString(BitString::fact(0)));
@@ -349,13 +350,18 @@ int main() {
                 {"1.570796326794896619231321691639751442098584699687552910487472296153908203143104499314017412671058534", "1.0"},
                 {"3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068", "0.0"},
                 {"-1", "-0.841470984807896506652502321630298999622563060798371065672751709991910404391239668948639743543052696"}
-            };
+            };//TODO: test more sine
             for (auto &pr : sinCases) {
                 const string &input = pr.first;
                 const string &expect = pr.second;
                 string got = BitString::toString(BitString::sin(BitString::fromString(input)));
                 checkEq("sin " + input, expect, got);
             }
+        }
+
+        // ln test
+        {
+            //TODO:
         }
     
     } catch (const exception& ex) {

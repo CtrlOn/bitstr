@@ -41,12 +41,6 @@ const BitString BitString::HALF_PI = {
     PI.exponent - 1
 };
 
-const BitString BitString::QUARTER_PI = {
-    PI.sign,
-    PI.mantissa,
-    PI.exponent - 2
-};
-
 BitString BitString::sin(const BitString& n) {
     // --- Step 1: Reduce to [0, 2π) ---
     BitString x = n % TAU;
