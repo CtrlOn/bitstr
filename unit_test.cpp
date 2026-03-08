@@ -26,7 +26,7 @@ void checkEq(const string& name, const string& expected, const string& got) {
     cout << "FAIL: " << name << '\n';
     cout << "  Expected: '" << expected << "'\n";
     cout << "  Got:      '" << got << "'\n";
-    BitString expbs = BitString::fromString(expected);
+    /*BitString expbs = BitString::fromString(expected);
     cout << "  expected details - sign: " << expbs.getSign() 
          << ", exponent: " << expbs.getExponent() 
          << ", mantissa: [";
@@ -35,7 +35,7 @@ void checkEq(const string& name, const string& expected, const string& got) {
         if (i > 0) cout << ", ";
         cout << "0x" << hex << mant[i] << dec;
     }
-    cout << "]\n";
+    cout << "]\n";*/
     ++failures;
 }
 
@@ -301,7 +301,14 @@ int main() {
         checkEq("mod 12345678901234567890%1234567890123456789", "0.0", BitString::toString(BitString::mod(BitString::fromString("12345678901234567890"), BitString::fromString("1234567890123456789"))));
         checkEq("mod 12345678901234567891%1234567890123456789", "1.0", BitString::toString(BitString::mod(BitString::fromString("12345678901234567891"), BitString::fromString("1234567890123456789"))));
         checkEq("mod 100000000000000000000%42", "16.0", BitString::toString(BitString::mod(BitString::fromString("100000000000000000000"), BitString::fromString("42"))));
-    
+        checkEq("mod 1%PI", "1.0", BitString::toString(BitString::mod(BitString::fromString("1"), BitString::PI)));
+        
+        //negative modulos
+        checkEq("mod -10%3", "2.0", BitString::toString(BitString::mod(BitString::fromString("-10"), BitString::fromString("3"))));
+        checkEq("mod -20%6", "4.0", BitString::toString(BitString::mod(BitString::fromString("-20"), BitString::fromString("6"))));
+        checkEq("mod -12345678901234567890%1234567890123456789", "0.0", BitString::toString(BitString::mod(BitString::fromString("-12345678901234567890"), BitString::fromString("1234567890123456789"))));
+        checkEq("mod -12345678901234567891%1234567890123456789", "1234567890123456788.0", BitString::toString(BitString::mod(BitString::fromString("-12345678901234567891"), BitString::fromString("1234567890123456789"))));
+
         // test sqrt - grouped cases in an array (printDets no longer needed)
         {
             vector<pair<string,string>> sqrtCases = {
@@ -330,6 +337,24 @@ int main() {
                 const string &expect = pr.second;
                 string got = BitString::toString(BitString::sqrt(BitString::fromString(input)));
                 checkEq("sqrt " + input, expect, got);
+            }
+        }
+
+        // sine test
+        {
+            vector<pair<string,string>> sinCases = {
+                {"0", "0.0"},
+                {"1", "0.841470984807896506652502321630298999622563060798371065672751709991910404391239668948639743543052696"},
+                {"0.785398163397448309615660845819875721049292349843776455243736148076954101571552249657008706335529267", "0.707106781186547524400844362104849039284835937688474036588339868995366239231053519425193767163820786"},
+                {"1.570796326794896619231321691639751442098584699687552910487472296153908203143104499314017412671058534", "1.0"},
+                {"3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068", "0.0"},
+                {"-1", "-0.841470984807896506652502321630298999622563060798371065672751709991910404391239668948639743543052696"}
+            };
+            for (auto &pr : sinCases) {
+                const string &input = pr.first;
+                const string &expect = pr.second;
+                string got = BitString::toString(BitString::sin(BitString::fromString(input)));
+                checkEq("sin " + input, expect, got);
             }
         }
     

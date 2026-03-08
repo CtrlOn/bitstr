@@ -134,8 +134,8 @@ BitString BitString::fromString(const string& s) {
 
 string BitString::toString(const BitString& value, int decFracDigits) {
     if (value.isZero()) return "0.0";
-
     string result;
+    
     if (value.sign) result += '-';
 
     BitString absValue = value;
@@ -206,6 +206,7 @@ string BitString::toString(const BitString& value, int decFracDigits) {
     result += intStr;
     if (frac.empty()) {
         result += ".0";
+        if (intStr == "0") return "0.0"; // Fix '-0.0'
     } else {
         result += "." + frac;
     }

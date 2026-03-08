@@ -27,6 +27,9 @@ public:
     BitString(const double d);
 
     const static BitString PI;
+    const static BitString TAU;
+    const static BitString HALF_PI;
+    const static BitString QUARTER_PI;
 
     // String conversions
     static BitString fromString(const std::string& s, int bitsPrecision);
@@ -51,15 +54,21 @@ public:
     bool operator>(const BitString& other) const;
 
     // Base arithmetics
+    static BitString mul(const BitString& a, const BitString& b, int maxBits);
     static BitString mul(const BitString& a, const BitString& b);
+
     static BitString div(const BitString& a, const BitString& b, int precision);
     static BitString div(const BitString& a, const BitString& b);
     static BitString mod(const BitString& a, const BitString& b);
+    static BitString rem(const BitString& a, const BitString& b);
+    
     static BitString add(const BitString& a, const BitString& b);
+
     static BitString abs(const BitString& a);
 
     // Trigonometrics
     static BitString sin(const BitString& n);
+    static BitString cos(const BitString& n);
 
     // Exponentials
     static BitString pow(const BitString& n, int e);

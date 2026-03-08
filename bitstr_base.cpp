@@ -120,24 +120,41 @@ BitString BitString::add(const BitString& l, const BitString& r) {
 }
 
 ///TODO: this is O(n^2), migrate to Karatsuba later
-BitString BitString::mul(const BitString& a, const BitString& b) {
+BitString BitString::mul(const BitString& a, const BitString& b, int limitBits) {
+    // If a limit is given (not INT_MAX), use truncated multiplication
+    if (limitBits != INT_MAX) {                       // extra bits to preserve accuracy
+        int targetBits = limitBits * 2.01f;
+        BitString a_trunc = a.truncate(targetBits);
+        BitString b_trunc = b.truncate(targetBits);
+        // Recursively multiply with no further limit
+        BitString result = mul(a_trunc, b_trunc, INT_MAX);
+        // Finally truncate to the desired precision
+        return result.truncate(limitBits);
+    }
+
+    // Original full multiplication (no limit)
     BitString result;
     result.sign = a.sign ^ b.sign;
     result.exponent = a.exponent + b.exponent;
     result.mantissa.assign(a.mantissa.size() + b.mantissa.size(), 0);
 
-    for (size_t i = 0; i < a.mantissa.size(); ++i){
+    for (size_t i = 0; i < a.mantissa.size(); ++i) {
         uint64_t carry = 0;
-        for (size_t j = 0; j < b.mantissa.size(); ++j){
-            uint64_t cur = result.mantissa[i+j] + (uint64_t)a.mantissa[i] * b.mantissa[j] + carry;
-            result.mantissa[i+j] = (uint32_t)cur;
+        for (size_t j = 0; j < b.mantissa.size(); ++j) {
+            uint64_t cur = result.mantissa[i + j] +
+                           (uint64_t)a.mantissa[i] * b.mantissa[j] + carry;
+            result.mantissa[i + j] = (uint32_t)cur;
             carry = cur >> 32;
         }
-        result.mantissa[i+b.mantissa.size()] += carry;
+        result.mantissa[i + b.mantissa.size()] += carry;
     }
 
     result.normalize();
     return result;
+}
+
+BitString BitString::mul(const BitString& a, const BitString& b) {
+    return mul(a, b, INT_MAX);
 }
 
 BitString BitString::fact(const uint32_t n) {

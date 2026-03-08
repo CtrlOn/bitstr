@@ -1,8 +1,9 @@
 // Division and Modulo
 #include "bitstr.h"
 #include "bigint.h"
+//#include <iostream>
 
-#define DIV_PRECISION 340 // How many binary digits to use for division (99 decimal digits + guard bits)
+#define DIV_PRECISION 350 // number of accurate bits (= 99 decimal digits + guard bits)
 
 using namespace std;
 using namespace BigInt;
@@ -93,14 +94,17 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
     return result;
 }
 
-/// Smart auto precision
+/// Smart auto precision TODO: idk if its smart actually anymore
 BitString BitString::div(const BitString& a, const BitString& b) {
-    return div(a, b, a.exponent - b.exponent + bit_length(a.mantissa) - bit_length(b.mantissa) + DIV_PRECISION);
+    int diff = (a.exponent + bit_length(a.mantissa)) / (bit_length(b.mantissa) + b.exponent);
+    int precision = diff * diff * 0.7071f + DIV_PRECISION;
+    //cout << ", a.mantissa bits=" << bit_length(a.mantissa) << ", b.mantissa bits=" << bit_length(b.mantissa) << ", a.exponent=" << a.exponent << ", b.exponent=" << b.exponent << "precision: " << precision << '\n';
+    return div(a, b, precision);
 }
 
-BitString BitString::mod(const BitString& a, const BitString& b) {
+BitString BitString::rem(const BitString& a, const BitString& b) {
     if (b.isZero())
-        throw std::domain_error("Modulo by zero");
+        throw std::domain_error("Remainder of zero");
 
     // Remainder takes the sign of the dividend
     bool resultSign = a.sign;
@@ -129,3 +133,15 @@ BitString BitString::mod(const BitString& a, const BitString& b) {
     result.normalize();
     return result;
 }
+
+BitString BitString::mod(const BitString& a, const BitString& b) {
+    if (b.isZero())
+        throw std::domain_error("Modulo by zero");
+
+    BitString r = rem(a, b);
+    if (r.sign != b.sign && !r.isZero()) {
+        r = r + b;
+    }
+    return r;
+}
+

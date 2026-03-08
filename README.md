@@ -37,8 +37,10 @@
 
 - Configurable via macro definitions:
   - `#define DEC_FRAC_OUT 99` (number of decimal digits in toString, alternatively, pass it as second argument)
-  - `#define BIN_FRAC_IN 340` (number of binary digits fromString reads, alternatively, pass it as second argument)
-  - `#define DIV_PRECISION 340` (number of binary digits to use for division, alternatively, use **div(a,b,precision)**)
+  - `#define BIN_FRAC_IN 340` (number of bits fromString reads, alternatively, pass it as second argument)
+  - `#define DIV_PRECISION 340` (number of bits to use for division, alternatively, use **div(a,b,precision)**)
+  - `#define SQRT_PRECISION 340` (number of bits to use for square root, alternatively, use **sqrt(a,precision)**, WARNING: this must be not lower than DIV_PRECISION, otherwise sqrt will not diverge causing infinite loop!)
+  - `#define SIN_PRECISION `340` (number of bits to use for sine and cosine functions)
 
 - Hardcoded constants:
   - `PI` (512 bits of precision ~= 154 decimal digits)

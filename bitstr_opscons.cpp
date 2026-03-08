@@ -95,7 +95,7 @@ BitString BitString::operator/(const BitString& other) const {
 }
 
 BitString BitString::operator%(const BitString& other) const {
-    return mod(*this, other);
+    return rem(*this, other);
 }
 
 // Left/Right shifts are procedural, no ops for them.

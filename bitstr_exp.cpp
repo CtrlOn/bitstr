@@ -2,7 +2,7 @@
 #include "bitstr.h"
 #include "bigint.h"
 
-#define SQRT_PRECISION 340 // How many bits of precision to use for default sqrt (99 decimal digits + guard bits)
+#define SQRT_PRECISION 340 // number of accurate bits for default sqrt (= 99 decimal digits + guard bits)
 
 using namespace std;
 using namespace BigInt;
@@ -42,7 +42,7 @@ BitString BitString::sqrt(const BitString& n, int precision) {
 
     while (true)
     {
-        BitString newX = (x + n / x) * half;
+        BitString newX = (x + div(n, x, precision + initial2exp)) * half;
         if (abs(newX - x) < BitString(0, {1}, -precision)) {
             break;
         }
