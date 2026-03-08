@@ -1,6 +1,5 @@
 // Trigonometrics
 #include "bitstr.h"
-#include <iostream>
 
 #define SIN_PRECISION 350 // number of accurate bits
 
@@ -78,7 +77,6 @@ BitString BitString::sin(const BitString& n) {
         term_sin = div(-term_sin * x2, BitString((double)((2*i)*(2*i+1))), SIN_PRECISION);
         sin_x = sin_x + term_sin;
         if (abs(term_sin) < abs(sin_x) * EPS) break;
-        cout << i << ' ';
     }
 
     // Cosine series (restart from 1)
@@ -87,7 +85,6 @@ BitString BitString::sin(const BitString& n) {
         term_cos = div(-term_cos * x2, BitString((double)((2*i-1)*(2*i))), SIN_PRECISION);
         cos_x = cos_x + term_cos;
         if (abs(term_cos) < abs(cos_x) * EPS) break;
-        cout << i << ' ';
     }
 
     // --- Step 4: Apply double-angle k times ---
@@ -96,9 +93,7 @@ BitString BitString::sin(const BitString& n) {
         BitString new_cos = BitString(2) * mul(cos_x, cos_x, SIN_PRECISION * 1.5f) - BitString(1);
         sin_x = new_sin;
         cos_x = new_cos;
-        cout << i << ' ';
     }
-    cout << '\n';
 
     return sin_x;
 }
