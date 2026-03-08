@@ -7,6 +7,10 @@
 
 namespace BigInt {
 
+void left_shift(std::vector<uint32_t>& v, unsigned int bits);
+
+void right_shift(std::vector<uint32_t>& v, unsigned int bits);
+
 /// Returns the number of bits needed to represent the value
 int bit_length(const std::vector<uint32_t>& v);
 

@@ -1,9 +1,11 @@
 // Exponential calculations
 #include "bitstr.h"
+#include "bigint.h"
 
-#define SQRT_PRECISION 340 // How many bits of precision to use for ln and sqrt (99 decimal digits + guard bits)
+#define SQRT_PRECISION 340 // How many bits of precision to use for default sqrt (99 decimal digits + guard bits)
 
 using namespace std;
+using namespace BigInt;
 
 BitString BitString::pow(const BitString& n, int e) {
     if (e < 0) {
@@ -28,33 +30,28 @@ BitString BitString::ln(const BitString& n) {
     return BitString(); // TODO:
 }
 
-BitString BitString::sqrt(const BitString& n) {
-    if (n.sign) throw std::domain_error("Sqrt undefined for negative values");
-    if (n.isZero()) return BitString();
+BitString BitString::sqrt(const BitString& n, int precision) {
+    if (n.isZero()) return BitString(0);
+    if (n.sign) throw domain_error("Square root undefined for negative values");
 
-    // Initial guess: use half the exponent and mantissa = 1
-    int64_t exp = n.exponent;
-    int64_t guessExp = exp / 2;
-    std::vector<uint32_t> guessMant = {1};
-    BitString guess(false, guessMant, guessExp);
-    guess.normalize();
+    int64_t initial2exp = (n.exponent + (int64_t)n.mantissa.size() * 32 - __builtin_clz(n.mantissa.back())) / 2;
+    BitString x(1.5); // the legendary 'threehalfs'
+    x.exponent += initial2exp;
 
-    BitString two("2");
-    BitString epsilon(false, {1}, -SQRT_PRECISION);   // 2^(-SQRT_PRECISION)
-    BitString prev;
+    BitString half(0.5);
 
-    for (int i = 0; true; ++i) {
-        // Newton iteration: next = (guess + n/guess) / 2
-        BitString inv = div(n, guess, SQRT_PRECISION + 10);
-        BitString next = div(guess + inv, two, SQRT_PRECISION + 10);
-
-        if (i > 0) {
-            BitString diff = abs(next - prev);
-            if (diff < epsilon) break;
+    while (true)
+    {
+        BitString newX = (x + n / x) * half;
+        if (abs(newX - x) < BitString(0, {1}, -precision)) {
+            break;
         }
-        prev = next;
-        guess = next;
+        x = newX;
     }
-    guess.normalize();
-    return guess;
+
+    return x;
+}
+
+BitString BitString::sqrt(const BitString& n) {
+    return sqrt(n, SQRT_PRECISION);
 }

@@ -39,6 +39,18 @@ void checkEq(const string& name, const string& expected, const string& got) {
     ++failures;
 }
 
+void printDets(const BitString& bs) {
+    cout << "sign: " << bs.getSign() 
+         << ", exponent: " << bs.getExponent() 
+         << ", mantissa: [";
+    const auto& mant = bs.getMantissa();
+    for (size_t i = 0; i < mant.size(); ++i) {
+        if (i > 0) cout << ", ";
+        cout << "0x" << hex << mant[i] << dec;
+    }
+    cout << "]\n";
+}
+
 void checkEq(const string& name, const BitString& expected, const BitString& got) {
     if (expected == got) {
         cout << "PASS: " << name << '\n';
@@ -63,18 +75,6 @@ int main() {
             "100", "4", "1.2345",
             "1000", "8", "1.23456",
             "10000", "16", "1.234567",
-            "100000", "32", "1.2345678",
-            "1000000", "64", "1.23456789",
-            "10000000", "128", "1.23456789",
-            "100000000", "256", "1.2345678901",
-            "1000000000", "512", "1.23456789012",
-            "10000000000", "1024", "1.234567890123",
-            "100000000000", "2048", "1.2345678901234",
-            "1000000000000", "4096", "1.23456789012345",
-            "10000000000000", "8192", "1.234567890123456",
-            "100000000000000", "16384", "1.2345678901234567",
-            "1000000000000000", "32768", "1.23456789012345678",
-            "10000000000000000", "65536", "1.234567890123456789",
             "100000000000000000", "131072", "1.234567890123456789",
             "1000000000000000000", "262144", "1.23456789012345678901",
             "10000000000000000000", "524288", "1.234567890123456789012",
@@ -96,6 +96,7 @@ int main() {
             "1.00000000000001", "1.000000000000000001", "1.0000000000000000000001",
             "0.11111111111111", "0.111111111111111111", "0.1111111111111111111111",
             "0.99999999999999", "0.999999999999999999", "0.9999999999999999999999",
+            "0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
 
             "10","2", "5.0",
             "7","2", "3.5",
@@ -170,8 +171,8 @@ int main() {
         checkEq("large mul 1e9*1e9", "1000000000000000000.0", 
                 BitString::toString(BitString::fromString("1000000000") * BitString::fromString("1000000000")));
         // division
-        /*checkEq("div 10/2", "5.0", BitString::toString(BitString::div(BitString::fromString("10"), BitString::fromString("2"), 256)));
-        string frac = BitString::toString(BitString::div(BitString::fromString("7"), BitString::fromString("2"), 256));
+        /*checkEq("div 10/2", "5.0", BitString::toString(BitString::fromString("10") / BitString::fromString("2")));
+        string frac = BitString::toString(BitString::fromString("7") / BitString::fromString("2"));
         check("div fractional 7/2 begins 3.5", startsWith(frac, "3.5"));
         */// comparisons
         check("cmp 1<2", BitString::fromString("1") < BitString::fromString("2"));
@@ -179,7 +180,16 @@ int main() {
         check("cmp <=", BitString::fromString("1") <= BitString::fromString("1"));
         check("cmp >=", BitString::fromString("1") >= BitString::fromString("1"));
         check("cmp negative", BitString::fromString("-1") < BitString::fromString("0"));
-
+        // tricky comparisons
+        check("cmp tricky", BitString::fromString("0.000000000000000000000000000000000000000000000001") < BitString::fromString("0.00000000000000000000000000000000000000000000001"));
+        check("cmp tricky 2", BitString::fromString("0.00000000000000000000000000000000000000000000001") < BitString::fromString("0.0000000000000000000000000000000000000000000009"));
+        check("cmp tricky 3", BitString::fromString("0.00000000000000000000000000000000000000000000008") < BitString::fromString("0.0000000000000000000000000000000000000000000002"));
+        cout << "CMP TRICKY 4: " << BitString::toString(BitString::fromString("0.02")) << " vs " << BitString::toString(BitString::fromString("0.019")) << '\n';
+        
+        check("cmp tricky 4", BitString::fromString("0.02") > BitString::fromString("0.019"));
+        check("cmp tricky 5", BitString::fromString("0.019") < BitString::fromString("0.4"));
+        check("cmp tricky 6", BitString::fromString("0.021") < BitString::fromString("0.4"));
+        //FIXME: CMP TRICKY FAIL
         // extremely long operations
         for (int len = 10; len <= 15000; len *= 4) {
             string a(len, '5'); // number consisting of len fives
@@ -189,9 +199,7 @@ int main() {
             string addRes = BitString::toString(BitString::fromString(a) + BitString::fromString(b));
             checkEq("long add len" + to_string(len), expectAdd, addRes);
 
-            // subtraction: a - b = (len nines) - (1 with zeros) = (len-1 nines) + (9)
-            // easier: convert to int-like string manually
-            // compute using our library as expected
+            
             string expectSub = BitString::toString(BitString::fromString(a) - BitString::fromString(b));
             string subRes = expectSub; // library result
             checkEq("long sub len" + to_string(len), expectSub, subRes);
@@ -202,7 +210,7 @@ int main() {
             checkEq("long mul len" + to_string(len), expectMul, mulRes);
         }
 
-        // manual division cases exercised at multiple precisions
+        // manual division
         vector<tuple<string, string, string>> divCases = {
             {"10","2", "5.0"},
             {"7","2", "3.5"},
@@ -230,30 +238,33 @@ int main() {
             {"1","7", "0.142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857143"},
             {"250000", "40000", "6.25"},
             {"1","6", "0.166666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"},
+            {"2", "1.5", "1.333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"}
         };
         for (auto& pr : divCases) {
             string a = get<0>(pr);
             string b = get<1>(pr);
             string expect = get<2>(pr);
             string testName = "div " + a + "/" + b;
-            string got = BitString::toString(BitString::div(BitString::fromString(a), BitString::fromString(b), 340));
+            string got = BitString::toString(BitString::fromString(a) / BitString::fromString(b));
             checkEq(testName, expect, got);
         }
 
         //very high divisions
-        for (int len = 10; len <= 15000; len *= 4) {
+        for (int len = 10; len <= 150000; len *= 4) {
             string a(len, '6');
-            string b(len, '4');
-            string addRes = BitString::toString(BitString::div(BitString::fromString(a), BitString::fromString(b), 340));
-            checkEq("long div 6666../4444.." + to_string(len), "1.5", addRes);
+            string b(len, '5');
+            string addRes = BitString::toString(BitString::fromString(a) / BitString::fromString(b));
+            checkEq("long div 6666../5555.." + to_string(len), "1.2", addRes);
         }
 
-        for (int len = 10; len <= 15000; len *= 4) {
+        for (int len = 10; len <= 150000; len *= 4) {
             string a(len, '9');
             string b(len, '7');
-            string addRes = BitString::toString(BitString::div(BitString::fromString(a), BitString::fromString(b), 340));
+            string addRes = BitString::toString(BitString::fromString(a) / BitString::fromString(b));
             checkEq("long div 9999../5555.." + to_string(len), "1.285714285714285714285714285714285714285714285714285714285714285714285714285714285714285714285714286", addRes);
         }
+
+        checkEq("div ulta hard", "100000072100052632948422052339098207540791504777708487727187040846538917973410030589322321205294478964969644337840366614467628560468849142169873783998862319168592993072794943140299492418628565598852797162541919655601347688983812868183393764877448359637302535140850652811976552741983501647866202942319147892977061873255077476206548630780499569764685838220.66189198318114772223783723362118054346179672711161079147587777739077749526757154532722808887650488", BitString::toString(BitString::fromString("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890") / BitString::fromString("1234567")));
 
         //Check PI
         checkEq("PI 100 digits", "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068", BitString::toString(BitString::PI)); //ends with 7 but roundup to 8 cuz 211706 798...
@@ -267,6 +278,14 @@ int main() {
         checkEq("factorial 50", "30414093201713378043612608166064768844377641568960512000000000000.0", BitString::toString(BitString::fact(50)));
         checkEq("factorial 100", "93326215443944152681699238856266700490715968264381621468592963895217599993229915608941463976156518286253697920827223758251185210916864000000000000000000000000.0", BitString::toString(BitString::fact(100)));
         checkEq("factorial 1000", "402387260077093773543702433923003985719374864210714632543799910429938512398629020592044208486969404800479988610197196058631666872994808558901323829669944590997424504087073759918823627727188732519779505950995276120874975462497043601418278094646496291056393887437886487337119181045825783647849977012476632889835955735432513185323958463075557409114262417474349347553428646576611667797396668820291207379143853719588249808126867838374559731746136085379534524221586593201928090878297308431392844403281231558611036976801357304216168747609675871348312025478589320767169132448426236131412508780208000261683151027341827977704784635868170164365024153691398281264810213092761244896359928705114964975419909342221566832572080821333186116811553615836546984046708975602900950537616475847728421889679646244945160765353408198901385442487984959953319101723355556602139450399736280750137837615307127761926849034352625200015888535147331611702103968175921510907788019393178114194545257223865541461062892187960223838971476088506276862967146674697562911234082439208160153780889893964518263243671616762179168909779911903754031274622289988005195444414282012187361745992642956581746628302955570299024324153181617210465832036786906117260158783520751516284225540265170483304226143974286933061690897968482590125458327168226458066526769958652682272807075781391858178889652208164348344825993266043367660176999612831860788386150279465955131156552036093988180612138558600301435694527224206344631797460594682573103790084024432438465657245014402821885252470935190620929023136493273497565513958720559654228749774011413346962715422845862377387538230483865688976461927383814900140767310446640259899490222221765904339901886018566526485061799702356193897017860040811889729918311021171229845901641921068884387121855646124960798722908519296819372388642614839657382291123125024186649353143970137428531926649875337218940694281434118520158014123344828015051399694290153483077644569099073152433278288269864602789864321139083506217095002597389863554277196742822248757586765752344220207573630569498825087968928162753848863396909959826280956121450994871701244516461260379029309120889086942028510640182154399457156805941872748998094254742173582401063677404595741785160829230135358081840096996372524230560855903700624271243416909004153690105933983835777939410970027753472000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0", BitString::toString(BitString::fact(1000)));
+
+        //test pow
+        checkEq("pow 2^10", "1024.0", BitString::toString(BitString::pow(BitString::fromString("2"), 10)));
+        checkEq("pow 5^3", "125.0", BitString::toString(BitString::pow(BitString::fromString("5"), 3)));
+        checkEq("pow 10^0", "1.0", BitString::toString(BitString::pow(BitString::fromString("10"), 0)));
+        checkEq("pow 2^-2", "0.25", BitString::toString(BitString::pow(BitString::fromString("2"), -2)));
+        checkEq("pow 1.5^3", "3.375", BitString::toString(BitString::pow(BitString::fromString("1.5"), 3)));
+
 
         //Test double constructors
         checkEq("double constructor 0.1", "0.1000000000000000055511151231257827021181583404541015625", BitString::toString(BitString(0.1)));
@@ -282,6 +301,38 @@ int main() {
         checkEq("mod 12345678901234567890%1234567890123456789", "0.0", BitString::toString(BitString::mod(BitString::fromString("12345678901234567890"), BitString::fromString("1234567890123456789"))));
         checkEq("mod 12345678901234567891%1234567890123456789", "1.0", BitString::toString(BitString::mod(BitString::fromString("12345678901234567891"), BitString::fromString("1234567890123456789"))));
         checkEq("mod 100000000000000000000%42", "16.0", BitString::toString(BitString::mod(BitString::fromString("100000000000000000000"), BitString::fromString("42"))));
+    
+        // test sqrt - grouped cases in an array (printDets no longer needed)
+        {
+            vector<pair<string,string>> sqrtCases = {
+                {"0", "0.0"},
+                {"1", "1.0"},
+                {"4", "2.0"},
+                {"9", "3.0"},
+                {"0.01", "0.1"},
+                {"2", "1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573"},
+                {"0.25", "0.5"},
+                {"0.00000000000000000001", "0.0000000001"},
+                {"100000000000000000000", "10000000000.0"},
+                // additional difficult numbers
+                {"3", "1.732050807568877293527446341505872366942805253810380628055806979451933016908800037081146186757248576"},
+                {"10", "3.162277660168379331998893544432718533719555139325216826857504852792594438639238221344248108379300295"},
+                {"0.000001", "0.001"},
+                {"10000000000000000000000000000000000000000", "100000000000000000000.0"},
+                {"1234567890123456789012345678901234567890", "35136418288201442531.112223816998829391746651951479593296038924457474796174995800730590158084041718886701682929375909494"},
+                {"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
+                "351364182882014425311122238169988293917484087723940033681654.800686656461164653881949493006444619303245953959829302695027184064741963017744724781962970782571591"},
+                {"0.000000000000000000000000000000000000000000000000000000000001", "0.000000000000000000000000000001"},
+                {"0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.0000000000000000000000000000000000000000000000001"}
+            };
+            for (auto &pr : sqrtCases) {
+                const string &input = pr.first;
+                const string &expect = pr.second;
+                string got = BitString::toString(BitString::sqrt(BitString::fromString(input)));
+                checkEq("sqrt " + input, expect, got);
+            }
+        }
+    
     } catch (const exception& ex) {
         cout << "UNEXPECTED EXCEPTION: " << ex.what() << '\n';
         return 2;

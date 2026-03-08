@@ -4,6 +4,45 @@
 
 namespace BigInt {
 
+void left_shift(std::vector<uint32_t>& v, unsigned int bits) {
+    if (bits == 0) return;
+    int int_shift = bits / 32;
+    int bit_shift = bits % 32;
+
+    if (bit_shift) {
+        uint32_t carry = 0;
+        for (size_t i = 0; i < v.size(); ++i){
+            uint64_t cursor = ((uint64_t)v[i] << bit_shift) | carry;
+            v[i] = (uint32_t)cursor;
+            carry = cursor >> 32;
+        }
+        if (carry) v.push_back(carry);
+    }
+    if (int_shift) v.insert(v.begin(), int_shift, 0);
+}
+
+void right_shift(std::vector<uint32_t>& v, unsigned int bits) {
+    if (bits == 0) return;
+    int int_shift = bits / 32;
+    int bit_shift = bits % 32;
+
+    if (int_shift >= (int)v.size()) {
+        v.assign(1, 0);
+        return;
+    }
+
+    v.erase(v.begin(), v.begin() + int_shift);
+
+    if (bit_shift) {
+        uint32_t carry = 0;
+        for (int i = v.size() - 1; i >= 0; --i){
+            uint32_t newCarry = v[i] << (32 - bit_shift);
+            v[i] = (v[i] >> bit_shift) | carry;
+            carry = newCarry;
+        }
+    }
+}
+
 int bit_length(const std::vector<uint32_t>& v) {
     if (v.empty()) return 0;
     // Find the highest non-zero word (skip trailing zeros)
@@ -79,7 +118,7 @@ void bigint_div(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b, 
     rem = a;
     for (int i = qbits; i >= 0; --i) {
         std::vector<uint32_t> Bshift = b;
-        BitString::leftShift(Bshift, i);
+        left_shift(Bshift, i);
         if (bigint_cmp(rem, Bshift) >= 0) {
             rem = bigint_sub(rem, Bshift);
             bigint_add_pow2(quot, i);

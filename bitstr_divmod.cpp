@@ -2,7 +2,7 @@
 #include "bitstr.h"
 #include "bigint.h"
 
-#define DIV_PRECISION 340 // How many bits of precision to use for division (99 decimal digits + guard bits)
+#define DIV_PRECISION 340 // How many binary digits to use for division (99 decimal digits + guard bits)
 
 using namespace std;
 using namespace BigInt;
@@ -39,6 +39,7 @@ static bool shouldRoundUp(const vector<uint32_t>& quotient, int discardBits) {
 BitString BitString::div(const BitString& a, const BitString& b, int precision) {
     if (b.isZero()) throw domain_error("Division by zero");
     if (a.isZero()) return BitString();
+    if (b.isOne()) return a;
 
     bool sign = a.sign ^ b.sign;
 
@@ -50,7 +51,7 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
     int p = precision + bit_length(bMantissa);
 
     vector<uint32_t> dividend = aMantissa;
-    leftShift(dividend, p);
+    left_shift(dividend, p);
 
     vector<uint32_t> quotient, remainder;
     bigint_div(dividend, bMantissa, quotient, remainder);
@@ -60,7 +61,7 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
 
     // Extract the highest precision bits
     vector<uint32_t> mantissa = quotient;
-    rightShift(mantissa, discardBits);
+    right_shift(mantissa, discardBits);
 
     if (shouldRoundUp(quotient, discardBits)) {
         uint64_t carry = 1;
@@ -74,7 +75,7 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
         // If rounding caused overflow, shift right and adjust exponent
         int newBits = bit_length(mantissa);
         if (newBits > precision) {
-            rightShift(mantissa, 1);
+            right_shift(mantissa, 1);
             discardBits += 1;
         }
     }
@@ -92,8 +93,9 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
     return result;
 }
 
+/// Smart auto precision
 BitString BitString::div(const BitString& a, const BitString& b) {
-    return div(a, b, DIV_PRECISION);
+    return div(a, b, a.exponent - b.exponent + bit_length(a.mantissa) - bit_length(b.mantissa) + DIV_PRECISION);
 }
 
 BitString BitString::mod(const BitString& a, const BitString& b) {
@@ -115,9 +117,9 @@ BitString BitString::mod(const BitString& a, const BitString& b) {
     std::vector<uint32_t> bMant = absB.mantissa;
 
     if (absA.exponent > minExp)
-        leftShift(aMant, (int)(absA.exponent - minExp));
+        left_shift(aMant, (int)(absA.exponent - minExp));
     if (absB.exponent > minExp)
-        leftShift(bMant, (int)(absB.exponent - minExp));
+        left_shift(bMant, (int)(absB.exponent - minExp));
 
     // Compute integer remainder
     std::vector<uint32_t> quot, rem;

@@ -40,8 +40,6 @@ public:
     BitString operator*(const BitString& other) const;
     BitString operator/(const BitString& other) const;
     BitString operator%(const BitString& other) const;
-    //BitString operator>>(const int bits) const;
-    //BitString operator<<(const int bits) const;
 
     BitString& operator=(const BitString& other);
 
@@ -51,10 +49,6 @@ public:
     bool operator>=(const BitString& other) const;
     bool operator<(const BitString& other) const;
     bool operator>(const BitString& other) const;
-
-    // Bitwise operations
-    static void leftShift(std::vector<uint32_t>& v, int bits);
-    static void rightShift(std::vector<uint32_t>& v, int bits);
 
     // Base arithmetics
     static BitString mul(const BitString& a, const BitString& b);

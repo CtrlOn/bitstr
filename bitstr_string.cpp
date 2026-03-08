@@ -85,15 +85,15 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
     vector<uint32_t> fracBits = {0};
     vector<uint32_t> remainder = numerator;
     for (int bit = 0; bit < bitsPrecision; ++bit) {
-        BitString::leftShift(remainder, 1);
-        BitString::leftShift(fracBits, 1);
+        left_shift(remainder, 1);
+        left_shift(fracBits, 1);
         if (bigint_cmp(remainder, denominator) >= 0) {
             bigint_add_int(fracBits, 1);
             remainder = bigint_sub(remainder, denominator);
         }
     }
 
-    BitString::leftShift(remainder, 1);
+    left_shift(remainder, 1);
     int cmp = bigint_cmp(remainder, denominator);
     bool roundUp = false;
     if (cmp > 0) {
@@ -114,7 +114,7 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
     }
 
     vector<uint32_t> integerShifted = integerPart;
-    BitString::leftShift(integerShifted, bitsPrecision);
+    left_shift(integerShifted, bitsPrecision);
     vector<uint32_t> mantissa = bigint_add(integerShifted, fracBits);
 
     BitString result(sign, mantissa, -bitsPrecision);
@@ -123,7 +123,13 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
 }
 
 BitString BitString::fromString(const string& s) {
-    return fromString(s, BIN_FRAC_IN);
+    int fractionals = 0;
+    int point = s.find('.');
+    if (point != std::string::npos) {
+        fractionals = (int)(s.size() - s.find('.') - 1);
+    }
+    float precision = s.find('.') != string::npos ? BIN_FRAC_IN * (fractionals * 1.414f) : 1;
+    return fromString(s, (int)precision + 1);
 }
 
 string BitString::toString(const BitString& value, int decFracDigits) {
@@ -141,9 +147,9 @@ string BitString::toString(const BitString& value, int decFracDigits) {
     vector<uint32_t> numerator = mantissa;
     vector<uint32_t> denominator = {1};
     if (exponent >= 0) {
-        leftShift(numerator, (int)exponent);
+        left_shift(numerator, (int)exponent);
     } else {
-        leftShift(denominator, (int)(-exponent));
+        left_shift(denominator, (int)(-exponent));
     }
 
     vector<uint32_t> intPart, remainder;

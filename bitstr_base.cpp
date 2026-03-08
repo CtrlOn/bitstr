@@ -3,14 +3,11 @@
 #include "bigint.h"
 
 using namespace std;
-
+using namespace BigInt;
 
 /// Values must be normalized before going in pretty much everywhere else
+/// WARNING: normalized means mantissa first element (least significant) is off, and last element is non-zero
 void BitString::normalize() {
-    // Remove leading zeros
-    while (mantissa.size() > 1 && mantissa.back() == 0)
-        mantissa.pop_back();
-
     // If became zero, reset sign and exponent
     if (isZero()) {
         sign = false;
@@ -28,8 +25,13 @@ void BitString::normalize() {
     uint32_t low = mantissa[0];
     int tz = __builtin_ctz(low);
     if (tz > 0) {
-        rightShift(mantissa, tz);
+        right_shift(mantissa, tz);
         exponent += tz;
+    }
+
+    // Remove leading zeros
+    while (mantissa.size() > 1 && mantissa.back() == 0) {
+        mantissa.pop_back();
     }
 }
 
@@ -43,7 +45,7 @@ BitString BitString::truncate(int bits) const {
         return result;
 
     int removeBits = totalBits - bits;
-    rightShift(result.mantissa, removeBits);
+    right_shift(result.mantissa, removeBits);
     result.exponent += removeBits;
     result.normalize();
 
@@ -52,58 +54,34 @@ BitString BitString::truncate(int bits) const {
 
 /// Compares absolute values (e.g. |-3| > |2|)
 int BitString::compareMag(const BitString& a, const BitString& b) {
-    if (a.exponent != b.exponent)
-        return a.exponent < b.exponent ? -1 : 1;
+    bool aZero = a.isZero();
+    bool bZero = b.isZero();
+    if (aZero && bZero) return 0;
+    if (aZero) return -1;
+    if (bZero) return 1;
 
-    if (a.mantissa.size() != b.mantissa.size())
-        return a.mantissa.size() < b.mantissa.size() ? -1 : 1;
+    int aLength = a.mantissa.size() * 32 + a.exponent - __builtin_clz(a.mantissa.back());
+    int bLength = b.mantissa.size() * 32 + b.exponent - __builtin_clz(b.mantissa.back());
 
-    for (int i = a.mantissa.size() - 1; i >= 0; --i)
-        if (a.mantissa[i] != b.mantissa[i])
-            return a.mantissa[i] < b.mantissa[i] ? -1 : 1;
+    if (aLength != bLength) return aLength < bLength ? -1 : 1;
+
+    int expDiff = a.exponent - b.exponent;
+    vector<uint32_t> aMant = a.mantissa;
+    vector<uint32_t> bMant = b.mantissa;
+    if (expDiff > 0) {
+        // a has more leading zeros, shift it right
+        left_shift(aMant, expDiff);
+    } else if (expDiff < 0) {
+        // b has more leading zeros, shift it right
+        left_shift(bMant, -expDiff);
+    }
+    for (int i = (int)aMant.size() - 1; i >= 0; --i) {
+        if (aMant[i] != bMant[i]) {
+            return aMant[i] < bMant[i] ? -1 : 1;
+        }
+    }
 
     return 0;
-}
-
-/// TODO: make operator<<=
-void BitString::leftShift(vector<uint32_t>& v, int bits) {
-    if (bits == 0) return;
-    int intShift = bits / 32;
-    int bitShift = bits % 32;
-
-    if (bitShift) {
-        uint32_t carry = 0;
-        for (size_t i = 0; i < v.size(); ++i){
-            uint64_t cursor = ((uint64_t)v[i] << bitShift) | carry;
-            v[i] = (uint32_t)cursor;
-            carry = cursor >> 32;
-        }
-        if (carry) v.push_back(carry);
-    }
-    if (intShift) v.insert(v.begin(), intShift, 0);
-}
-
-/// TODO: make operator>>=
-void BitString::rightShift(vector<uint32_t>& v, int bits) {
-    if (bits == 0) return;
-    int intShift = bits / 32;
-    int bitShift = bits % 32;
-
-    if (intShift >= (int)v.size()) {
-        v.assign(1, 0);
-        return;
-    }
-
-    v.erase(v.begin(), v.begin() + intShift);
-
-    if (bitShift) {
-        uint32_t carry = 0;
-        for (int i = v.size() - 1; i >= 0; --i){
-            uint32_t newCarry = v[i] << (32 - bitShift);
-            v[i] = (v[i] >> bitShift) | carry;
-            carry = newCarry;
-        }
-    }
 }
 
 /// Both sub and add here
@@ -112,10 +90,10 @@ BitString BitString::add(const BitString& l, const BitString& r) {
     BitString b = r;
     // Align exponents to the smaller one by left‑shifting the larger
     if (a.exponent > b.exponent) {
-        leftShift(a.mantissa, a.exponent - b.exponent);
+        left_shift(a.mantissa, a.exponent - b.exponent);
         a.exponent = b.exponent;
     } else if (b.exponent > a.exponent) {
-        leftShift(b.mantissa, b.exponent - a.exponent);
+        left_shift(b.mantissa, b.exponent - a.exponent);
         b.exponent = a.exponent;
     }
 
@@ -180,4 +158,8 @@ BitString BitString::abs(const BitString& x) {
 
 bool BitString::isZero() const {
     return mantissa.size() == 1 && mantissa[0] == 0;
+}
+
+bool BitString::isOne() const {
+    return !sign && exponent == 0 && mantissa.size() == 1 && mantissa[0] == 1;
 }
