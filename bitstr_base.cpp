@@ -121,8 +121,7 @@ BitString BitString::add(const BitString& l, const BitString& r) {
 
 ///TODO: this is O(n^2), migrate to Karatsuba later
 BitString BitString::mul(const BitString& a, const BitString& b, int limitBits) {
-    // If a limit is given (not INT_MAX), use truncated multiplication
-    if (limitBits != INT_MAX) {                       // extra bits to preserve accuracy
+    if (limitBits != INT_MAX) {
         int targetBits = limitBits * 2.01f;
         BitString a_trunc = a.truncate(targetBits);
         BitString b_trunc = b.truncate(targetBits);
@@ -131,8 +130,7 @@ BitString BitString::mul(const BitString& a, const BitString& b, int limitBits) 
         // Finally truncate to the desired precision
         return result.truncate(limitBits);
     }
-
-    // Original full multiplication (no limit)
+    // full multiplication
     BitString result;
     result.sign = a.sign ^ b.sign;
     result.exponent = a.exponent + b.exponent;

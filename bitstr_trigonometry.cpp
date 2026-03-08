@@ -42,48 +42,47 @@ const BitString BitString::HALF_PI = {
 };
 
 BitString BitString::sin(const BitString& n) {
-    // --- Step 1: Reduce to [0, 2π) ---
+    // reduce to [0, 2pi)
     BitString x = n % TAU;
     if (x < 0) x = x + TAU;
 
-    // --- Step 2: Halve until angle is small ---
+    // keep halving until its "small"
     int k = 0;
-    const BitString SMALL_ANGLE(0.0000001);  // adjust as needed
+    // adjustable (literally depends on other operator speeds), 
+    //  make it smaller to use more multiplications,
+    //  larger to use more taylors (divisions), best with benchmarking
+    const BitString SMALL_ANGLE(0.0000001);
     while (x > SMALL_ANGLE) {
-        x = x * BitString(0.5);   // divide by 2
+        x = x * BitString(0.5);
         k++;
     }
 
-    // --- Step 3: Compute sin and cos of the tiny angle using Taylor series ---
-    // sin(x) = x - x³/6 + x⁵/120 - x⁷/5040 + ...
-    // cos(x) = 1 - x²/2 + x⁴/24 - x⁶/720 + ...
+    // compute sin and cos (with tiny angle)
     BitString sin_x = x;
     BitString cos_x = BitString(1);
     BitString term_sin = x;
     BitString term_cos = BitString(1);
     BitString x2 = mul(x, x, SIN_PRECISION * 1.5f);
     const int MAX_TERMS = 20;
-    const BitString EPS = BitString(0, {1}, -SIN_PRECISION); // 2^{-SIN_PRECISION}
+    const BitString EPS = BitString(0, {1}, -SIN_PRECISION);
 
     // Sine series
     for (int i = 1; i < MAX_TERMS; ++i) {
-        // term_i = - term_{i-1} * x² / ((2i)*(2i+1))
         term_sin = div(-term_sin * x2, BitString((double)((2*i)*(2*i+1))), SIN_PRECISION);
         sin_x = sin_x + term_sin;
         if (abs(term_sin) < abs(sin_x) * EPS) break;
     }
 
-    // Cosine series (restart from 1)
+    // Cosine series
     for (int i = 1; i < MAX_TERMS; ++i) {
-        // term_i = - term_{i-1} * x² / ((2i-1)*(2i))
         term_cos = div(-term_cos * x2, BitString((double)((2*i-1)*(2*i))), SIN_PRECISION);
         cos_x = cos_x + term_cos;
         if (abs(term_cos) < abs(cos_x) * EPS) break;
     }
 
-    // --- Step 4: Apply double-angle k times ---
+    // Now stitch it all up with "sin2x = 2sinxcosx"
     for (int i = 0; i < k; ++i) {
-        BitString new_sin = BitString(2) * mul(sin_x, cos_x, SIN_PRECISION * 1.5f);
+        BitString new_sin = BitString(2) * mul(sin_x, cos_x, SIN_PRECISION * 1.5f); // cheaper mults
         BitString new_cos = BitString(2) * mul(cos_x, cos_x, SIN_PRECISION * 1.5f) - BitString(1);
         sin_x = new_sin;
         cos_x = new_cos;

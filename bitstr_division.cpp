@@ -97,6 +97,7 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
 BitString BitString::div(const BitString& a, const BitString& b) {
     int diff = (a.exponent + bit_length(a.mantissa)) / (bit_length(b.mantissa) + b.exponent);
     int precision = diff * diff * 0.7071f + DIV_PRECISION;
+    //cout << ", a.mantissa bits=" << bit_length(a.mantissa) << ", b.mantissa bits=" << bit_length(b.mantissa) << ", a.exponent=" << a.exponent << ", b.exponent=" << b.exponent << "precision: " << precision << '\n';
     return div(a, b, precision);
 }
 
