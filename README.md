@@ -12,13 +12,13 @@
 - [x] Multiplication
 - [x] Division
 - [x] Hardcoded PI
-- [ ] Sine
-- [ ] Factorial
-- [ ] Power
-- [ ] Square root
+- [x] Sine
+- [x] Factorial
+- [x] Power
+- [x] Square root
 - [ ] Natural logarithm
 - [ ] Next prime
-- [ ] Utils (Find, Sort, Avg)
+- [x] Utils (Find, Sort, Avg)
 
 ### Optimizarion milestones:
 
