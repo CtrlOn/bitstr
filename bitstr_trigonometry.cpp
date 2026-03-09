@@ -1,96 +1,78 @@
-// Trigonometrics
+// Trigonometry calculations
 #include "bitstr.h"
+#include <utility>
 
-#define SIN_PRECISION 350 // number of accurate bits
+#define SIN_PRECISION 448 // default target precision bits for sin/cos
 
 using namespace std;
 
-// 512 bits of PI (around 150 decimal digits, def overkill)
-const BitString BitString::PI = {
-    false,
-    {
-        0x6D51C245,
-        0x4FE1356D,
-        0xF25F1437,
-        0x302B0A6D,
-        0xCD3A431B,
-        0xEF9519B3,
-        0x8E3404DD,
-        0x514A0879,
-        0x3B139B22,
-        0x020BBEA6,
-        0x8A67CC74,
-        0x29024E08,
-        0x80DC1CD1,
-        0xC4C6628B,
-        0x2168C234,
-        0xC90FDAA2,
-    },
-    -510
-};
+static pair<BitString, BitString> sincosCore(const BitString& n) {
+    BitString x = n % BitString::TAU;
+    if (x < 0) x = x + BitString::TAU;
 
-const BitString BitString::TAU = {
-    PI.sign,
-    PI.mantissa,
-    PI.exponent + 1
-};
+    int quadrant = 0;
+    while (x >= BitString::HALF_PI) {
+        x = x - BitString::HALF_PI;
+        ++quadrant;
+    }
+    quadrant &= 3;
 
-const BitString BitString::HALF_PI = {
-    PI.sign,
-    PI.mantissa,
-    PI.exponent - 1
-};
+    // keep halving until angle is tiny enough for short Taylor series
+    int k = 0;
+    static const int HALVING_COEFF = 40;
+    BitString smallAngle(0, {1}, -HALVING_COEFF);
+
+    while (x > smallAngle) {
+        x = x / 2;
+        ++k;
+    }
+
+    BitString sinX = x;
+    BitString cosX = BitString::ONE;
+    BitString termSin = x;
+    BitString termCos = BitString::ONE;
+    BitString x2 = BitString::mul(x, x, SIN_PRECISION * 1.4f);
+    const BitString epsilon(0, {1}, -SIN_PRECISION);
+
+    for (int i = 1; i * i < SIN_PRECISION; ++i) {
+        termSin = BitString::div(-termSin * x2, BitString(((2 * i) * (2 * i + 1))), SIN_PRECISION);
+        sinX = sinX + termSin;
+        if (BitString::abs(termSin) < BitString::abs(sinX) * epsilon) break;
+    }
+
+    for (int i = 1; i * i < SIN_PRECISION; ++i) {
+        termCos = BitString::div(-termCos * x2, BitString(((2 * i - 1) * (2 * i))), SIN_PRECISION);
+        cosX = cosX + termCos;
+        if (BitString::abs(termCos) < BitString::abs(cosX) * epsilon) break;
+    }
+
+    for (int i = 0; i < k; ++i) {
+        BitString newSin = BitString::TWO * BitString::mul(sinX, cosX, SIN_PRECISION * 1.4f);
+        BitString newCos = BitString::TWO * BitString::mul(cosX, cosX, SIN_PRECISION * 1.4f) - BitString::ONE;
+        sinX = newSin;
+        cosX = newCos;
+    }
+
+    if (quadrant == 0) return {sinX, cosX};
+    if (quadrant == 1) return {cosX, -sinX};
+    if (quadrant == 2) return {-sinX, -cosX};
+    return {-cosX, sinX};
+}
+
+const BitString BitString::PI = BitString::fromString(
+    "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117067"
+    "982148086513282306647093844609550582231725359408128481117450284102701938521105559644622948954930381"
+);
+
+const BitString BitString::TAU = BitString(PI.sign, PI.mantissa, PI.exponent + 1);
+
+const BitString BitString::HALF_PI = BitString(PI.sign, PI.mantissa, PI.exponent - 1);
+
 
 BitString BitString::sin(const BitString& n) {
-    // reduce to [0, 2pi)
-    BitString x = n % TAU;
-    if (x < 0) x = x + TAU;
-
-    // keep halving until its "small"
-    int k = 0;
-    // adjustable (literally should depend on other operator speeds), 
-    //  make it smaller to use more multiplications,
-    //  larger to use more taylors (divisions), best with benchmarking
-    const BitString SMALL_ANGLE("0.0000001");
-    while (x > SMALL_ANGLE) {
-        x.exponent--;
-        k++;
-    }
-
-    // compute sin and cos (with tiny angle)
-    BitString sin_x = x;
-    BitString cos_x = BitString("1");
-    BitString term_sin = x;
-    BitString term_cos = BitString("1");
-    BitString x2 = mul(x, x, SIN_PRECISION * 1.5f);
-    const int MAX_TERMS = 20;
-    const BitString EPS = BitString(0, {1}, -SIN_PRECISION);
-
-    // Sine series
-    for (int i = 1; i < MAX_TERMS; ++i) {
-        term_sin = div(-term_sin * x2, BitString((int32_t)((2*i)*(2*i+1))), SIN_PRECISION);
-        sin_x = sin_x + term_sin;
-        if (abs(term_sin) < abs(sin_x) * EPS) break;
-    }
-
-    // Cosine series
-    for (int i = 1; i < MAX_TERMS; ++i) {
-        term_cos = div(-term_cos * x2, BitString((int32_t)((2*i-1)*(2*i))), SIN_PRECISION);
-        cos_x = cos_x + term_cos;
-        if (abs(term_cos) < abs(cos_x) * EPS) break;
-    }
-
-    // Now stitch it all up with "sin2x = 2sinxcosx"
-    for (int i = 0; i < k; ++i) {
-        BitString new_sin = BitString("2") * mul(sin_x, cos_x, SIN_PRECISION * 1.5f); // cheaper mults
-        BitString new_cos = BitString("2") * mul(cos_x, cos_x, SIN_PRECISION * 1.5f) - BitString("1");
-        sin_x = new_sin;
-        cos_x = new_cos;
-    }
-
-    return sin_x;
+    return sincosCore(n).first;
 }
 
 BitString BitString::cos(const BitString& n) {
-    return sin(n + HALF_PI);
+    return sincosCore(n).second;
 }

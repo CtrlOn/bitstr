@@ -2,6 +2,7 @@
 *.txt
 *.exe
 .vscode/
+untracked/
 
 # Anonymous lecturer data protection 0_0
 test.cpp

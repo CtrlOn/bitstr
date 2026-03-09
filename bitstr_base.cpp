@@ -5,6 +5,9 @@
 using namespace std;
 using namespace BigInt;
 
+const BitString BitString::ONE = BitString(false, {1}, 0);
+const BitString BitString::TWO = BitString(false, {1}, 1);
+
 /// Values must be normalized before going in pretty much everywhere else
 /// WARNING: normalized means mantissa first element (least significant) is off, and last element is non-zero
 void BitString::normalize() {
@@ -86,6 +89,9 @@ int BitString::compareMag(const BitString& a, const BitString& b) {
 
 /// Both sub and add here
 BitString BitString::add(const BitString& l, const BitString& r) {
+    if (l.isZero()) return r;
+    if (r.isZero()) return l;
+
     BitString a = l;
     BitString b = r;
     // Align exponents to the smaller one by left‑shifting the larger
@@ -120,6 +126,7 @@ BitString BitString::add(const BitString& l, const BitString& r) {
 }
 
 ///TODO: this is O(n^2), migrate to Karatsuba later
+/// limitBits is all bits, not just fractional bits!
 BitString BitString::mul(const BitString& a, const BitString& b, int limitBits) {
     if (limitBits != INT_MAX) {
         int targetBits = limitBits * 2.01f;
@@ -170,9 +177,11 @@ BitString BitString::abs(const BitString& x) {
     return result;
 }
 
-
 bool BitString::isZero() const {
-    return mantissa.size() == 1 && mantissa[0] == 0;
+    for (uint32_t w : mantissa) {
+        if (w != 0) return false;
+    }
+    return true;
 }
 
 bool BitString::isOne() const {

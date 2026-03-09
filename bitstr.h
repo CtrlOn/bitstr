@@ -7,7 +7,6 @@
 #include <stdexcept>
 #include <algorithm>
 #include <sstream>
-#include <format>
 
 class BitString {
 private:
@@ -26,6 +25,8 @@ public:
     BitString(const int n);
     BitString(const double d);
 
+    const static BitString ONE;
+    const static BitString TWO;
     const static BitString PI;
     const static BitString TAU;
     const static BitString HALF_PI;

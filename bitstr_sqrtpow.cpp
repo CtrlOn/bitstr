@@ -2,7 +2,7 @@
 #include "bitstr.h"
 #include "bigint.h"
 
-#define SQRT_PRECISION 340 // number of accurate bits for default sqrt (= 99 decimal digits + guard bits)
+#define SQRT_PRECISION 448 // default target precision bits for sqrt
 
 using namespace std;
 using namespace BigInt;
@@ -27,16 +27,21 @@ BitString BitString::sqrt(const BitString& n, int precision) {
     if (n.isZero()) return BitString(0);
     if (n.sign) throw domain_error("Square root undefined for negative values");
 
-    int64_t initial2exp = (n.exponent + (int64_t)n.mantissa.size() * 32 - __builtin_clz(n.mantissa.back())) / 2;
-    BitString x(1.5); // the legendary 'threehalfs'
+    const int totalBits = n.mantissa.size() * 32 - __builtin_clz(n.mantissa.back());
+    int64_t initial2exp = (n.exponent + (int64_t)totalBits) / 2;
+
+    // Better initial guess than 1.5: midpoint of sqrt([1,2)) narrows Newton steps.
+    BitString x(1.2071067811865475);
     x.exponent += initial2exp;
 
     BitString half(0.5);
+    const BitString eps(0, {1}, -precision);
+    const int maxIter = (precision / 8) + 12;
 
-    while (true)
-    {
-        BitString newX = (x + div(n, x, precision + initial2exp)) * half;
-        if (abs(newX - x) < BitString(0, {1}, -precision)) {
+    for (int iter = 0; iter < maxIter; ++iter) {
+        BitString newX = (x + div(n, x, precision + 32)) * half;
+        if (abs(newX - x) < eps) {
+            x = newX;
             break;
         }
         x = newX;

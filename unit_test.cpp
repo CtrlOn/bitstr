@@ -1,399 +1,441 @@
+#include <algorithm>
+#include <chrono>
+#include <cstdint>
+#include <functional>
 #include <iostream>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <vector>
-#include <stdexcept>
-#include <sstream>
-#include <iomanip>
+
 #include "bitstr.h"
 
-using namespace std;
+namespace {
 
-static int failures = 0;
+volatile std::size_t g_sink = 0;
 
-void check(const string& name, bool cond) {
-    if (cond) cout << "PASS: " << name << '\n';
-    else {
-        cout << "FAIL: " << name << '\n';
-        ++failures;
-    }
+BitString bs(const std::string& s) {
+    return BitString::fromString(s);
 }
 
-void checkEq(const string& name, const string& expected, const string& got, bool quiet = false) {
-    if (expected == got) {
-        cout << "PASS: " << name << '\n';
-        return;
+std::string str(const BitString& v) {
+    return BitString::toString(v);
+}
+
+bool endsWith(const std::string& s, const std::string& suffix) {
+    if (s.size() < suffix.size()) {
+        return false;
     }
-    if (!quiet) {
-        cout << "FAIL: " << name << '\n';
-        cout << "  Expected: '" << expected << "'\n";
-        cout << "  Got:      '" << got << "'\n";
-        /*BitString expbs = BitString::fromString(expected);
-        cout << "  expected details - sign: " << expbs.getSign() 
-            << ", exponent: " << expbs.getExponent() 
-            << ", mantissa: [";
-        const auto& mant = expbs.getMantissa();
-        for (size_t i = 0; i < mant.size(); ++i) {
-            if (i > 0) cout << ", ";
-            cout << "0x" << hex << mant[i] << dec;
-        }
-        cout << "]\n";*/
-        ++failures;
+    return s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
+std::string canonicalDecimal(const std::string& input) {
+    if (input.empty()) {
+        return "0.0";
+    }
+
+    std::string s = input;
+    bool neg = false;
+    if (!s.empty() && s[0] == '-') {
+        neg = true;
+        s.erase(s.begin());
+    }
+
+    std::size_t dot = s.find('.');
+    if (dot == std::string::npos) {
+        s += ".0";
     } else {
-        cout << "UNKNOWN: " << name << '\n';
+        std::string intPart = s.substr(0, dot);
+        std::string fracPart = s.substr(dot + 1);
+        while (!fracPart.empty() && fracPart.back() == '0') {
+            fracPart.pop_back();
+        }
+        if (fracPart.empty()) {
+            s = intPart + ".0";
+        } else {
+            s = intPart + "." + fracPart;
+        }
+    }
+
+    if (s == "0.0") {
+        return "0.0";
+    }
+    return neg ? ("-" + s) : s;
+}
+
+void consume(const BitString& v) {
+    g_sink += v.getMantissa().size();
+    g_sink += static_cast<std::size_t>(v.getExponent() & 0xFF);
+    g_sink += v.getSign() ? 1U : 0U;
+}
+
+struct TestRunner {
+    int failures = 0;
+
+    void check(const std::string& name, bool ok) {
+        if (ok) {
+            std::cout << "PASS: " << name << '\n';
+            return;
+        }
+        std::cout << "FAIL: " << name << '\n';
+        ++failures;
+    }
+
+    void checkEq(const std::string& name, const std::string& expected, const std::string& got) {
+        const std::string normExpected = canonicalDecimal(expected);
+        const std::string normGot = canonicalDecimal(got);
+
+        if (normExpected == normGot) {
+            std::cout << "PASS: " << name << '\n';
+            return;
+        }
+        std::cout << "FAIL: " << name << '\n';
+        std::cout << "  Expected: '" << expected << "' (canonical: '" << normExpected << "')\n";
+        std::cout << "  Got:      '" << got << "' (canonical: '" << normGot << "')\n";
+        ++failures;
+    }
+
+    void checkEqRaw(const std::string& name, const std::string& expected, const std::string& got) {
+        if (expected == got) {
+            std::cout << "PASS: " << name << '\n';
+            return;
+        }
+        std::cout << "FAIL: " << name << '\n';
+        std::cout << "  Expected: '" << expected << "'\n";
+        std::cout << "  Got:      '" << got << "'\n";
+        ++failures;
+    }
+};
+
+void runFormattingRuleTests(TestRunner& tr) {
+    const std::string z98(98, '0');
+    const std::string z96(96, '0');
+
+    tr.checkEqRaw("fmt integer 1", "1.0", str(bs("1")));
+    tr.checkEqRaw("fmt integer -42", "-42.0", str(bs("-42")));
+    tr.checkEqRaw("fmt 0.5 width", "0.5" + z98, str(bs("0.5")));
+    tr.checkEqRaw("fmt 0.125 width", "0.125" + z96, str(bs("0.125")));
+    tr.checkEqRaw("fmt -7.25 width", "-7.25" + std::string(97, '0'), str(bs("-7.25")));
+
+    const std::string oneSixth = "0.166666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667";
+    const std::string twoThirds = "0.666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667";
+    tr.checkEqRaw("fmt rounding 1/6", oneSixth, str(bs("1") / bs("6")));
+    tr.checkEqRaw("fmt rounding 2/3", twoThirds, str(bs("2") / bs("3")));
+
+    const std::vector<std::string> exoticCases = {
+        "0.0000000000000000000001",
+        "999999999999999999999999999999999999.0000000000000000000000001",
+        "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068",
+        "-0.00000000000000000000000000000000000000000000000001"
+    };
+
+    for (const std::string& input : exoticCases) {
+        const std::string out = str(bs(input));
+        tr.check("fmt no scientific " + input, out.find('e') == std::string::npos && out.find('E') == std::string::npos);
+        const std::size_t dot = out.find('.');
+        tr.check("fmt has dot " + input, dot != std::string::npos);
+        if (dot != std::string::npos && !endsWith(out, ".0")) {
+            tr.check("fmt 99 fractional digits " + input, out.size() - dot - 1 == 99);
+        }
     }
 }
 
-void printDets(const BitString& bs) {
-    cout << "sign: " << bs.getSign() 
-         << ", exponent: " << bs.getExponent() 
-         << ", mantissa: [";
-    const auto& mant = bs.getMantissa();
-    for (size_t i = 0; i < mant.size(); ++i) {
-        if (i > 0) cout << ", ";
-        cout << "0x" << hex << mant[i] << dec;
+void runRoundtripTests(TestRunner& tr) {
+    const std::vector<std::string> values = {
+        "0", "1", "-1", "10", "1000000000000000000",
+        "1.0", "0.5", "-123.456", "123.456789",
+        "0.0000000000000000000001",
+        "10.000000000000090000000000000900000000000009",
+        "0.9999999999999999999999"
+    };
+
+    for (const std::string& input : values) {
+        std::string expected = input;
+        if (expected.find('.') == std::string::npos) {
+            expected += ".0";
+        }
+        tr.checkEq("roundtrip " + input, expected, str(bs(input)));
     }
-    cout << "]\n";
 }
 
-void checkEq(const string& name, const BitString& expected, const BitString& got) {
-    if (expected == got) {
-        cout << "PASS: " << name << '\n';
-        return;
-    }
-    cout << "FAIL: " << name << '\n';
-    cout << "  Expected: '" << BitString::toString(expected) << "'\n";
-    cout << "  Got:      '" << BitString::toString(got) << "'\n";
-    ++failures;
+void runArithmeticTests(TestRunner& tr) {
+    tr.checkEq("add 123+456", "579.0", str(bs("123") + bs("456")));
+    tr.checkEq("sub 1000-1", "999.0", str(bs("1000") - bs("1")));
+    tr.checkEq("add -5+3", "-2.0", str(bs("-5") + bs("3")));
+
+    tr.checkEq("add 1.2+3.4", "4.6", str(bs("1.2") + bs("3.4")));
+    tr.checkEq("sub 5.5-2.2", "3.3", str(bs("5.5") - bs("2.2")));
+    tr.checkEq("add 0.1+0.2", "0.3", str(bs("0.1") + bs("0.2")));
+
+    tr.checkEq("mul 1.5*2.0", "3.0", str(bs("1.5") * bs("2.0")));
+    tr.checkEq("mul 0.5*0.5", "0.25", str(bs("0.5") * bs("0.5")));
+    tr.checkEq("mul 1.23*4.56", "5.6088", str(bs("1.23") * bs("4.56")));
+    tr.checkEq("mul 9999*9999", "99980001.0", str(bs("9999") * bs("9999")));
+    tr.checkEq("mul 123456789*987654321", "121932631112635269.0", str(bs("123456789") * bs("987654321")));
+    tr.checkEq("mul 0.0000000000000000000001*10000000000000000000", "1.0", str(bs("0.0000000000000000001") * bs("10000000000000000000")));
 }
 
-bool startsWith(const string& s, const string& prefix) {
-    return s.compare(0, prefix.size(), prefix) == 0;
+void runComparisonTests(TestRunner& tr) {
+    tr.check("cmp 1<2", bs("1") < bs("2"));
+    tr.check("cmp 2>1", bs("2") > bs("1"));
+    tr.check("cmp 1<=1", bs("1") <= bs("1"));
+    tr.check("cmp 1>=1", bs("1") >= bs("1"));
+    tr.check("cmp -1<0", bs("-1") < bs("0"));
+    tr.check("cmp 0.02>0.019", bs("0.02") > bs("0.019"));
 }
+
+void runDivisionAndModuloTests(TestRunner& tr) {
+    const std::vector<std::tuple<std::string, std::string, std::string>> divCases = {
+        {"10", "2", "5.0"},
+        {"7", "2", "3.5"},
+        {"50", "8", "6.25"},
+        {"1", "3", "0.333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"},
+        {"2", "1.5", "1.333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"},
+        {"1", "6", "0.166666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"}
+    };
+
+    for (const auto& c : divCases) {
+        const std::string& a = std::get<0>(c);
+        const std::string& b = std::get<1>(c);
+        const std::string& expected = std::get<2>(c);
+        tr.checkEq("div " + a + "/" + b, expected, str(bs(a) / bs(b)));
+    }
+
+    tr.checkEq("mod 10%3", "1.0", str(BitString::mod(bs("10"), bs("3"))));
+    tr.checkEq("mod -10%3", "2.0", str(BitString::mod(bs("-10"), bs("3"))));
+    tr.checkEq("mod 100000000000000000000%42", "16.0", str(BitString::mod(bs("100000000000000000000"), bs("42"))));
+}
+
+void runConstantsAndExponentialTests(TestRunner& tr) {
+    tr.checkEq(
+        "PI 100 digits",
+        "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068",
+        str(BitString::PI)
+    );
+    tr.checkEq(
+        "LN_2 100 digits",
+        "0.693147180559945309417232121458176568075500134360255254120680009493393621969694715605863326996418688",
+        str(BitString::LN_2)
+    );
+
+    tr.checkEq("pow 2^10", "1024.0", str(BitString::pow(bs("2"), 10)));
+    tr.checkEq("pow 2^-2", "0.25", str(BitString::pow(bs("2"), -2)));
+    tr.checkEq("pow 1.5^3", "3.375", str(BitString::pow(bs("1.5"), 3)));
+    tr.checkEq("pow 5^0", "1.0", str(BitString::pow(bs("5"), 0)));
+    tr.checkEq("pow 0^5", "0.0", str(BitString::pow(bs("0"), 5)));
+    tr.checkEq("pow 0^0", "1.0", str(BitString::pow(bs("0"), 0)));
+    tr.checkEq("pow out of precision", "0.0", str(BitString::pow(bs("0."+std::string(98, '0')+"1"), 2)));
+    tr.checkEq("pow just outside precision", "0.0", str(BitString::pow(bs("0."+std::string(49, '0')+"1"), 2)));
+    tr.checkEq("pow just inside precision", "0."+std::string(97, '0')+"1", str(BitString::pow(bs("0."+std::string(48, '0')+"1"), 2)));
+
+    tr.checkEq("sqrt 4", "2.0", str(BitString::sqrt(bs("4"))));
+    tr.checkEq("sqrt 0.01", "0.1", str(BitString::sqrt(bs("0.01"))));
+    tr.checkEq(
+        "sqrt 2",
+        "1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573",
+        str(BitString::sqrt(bs("2")))
+    );
+
+    tr.checkEq("ln 1", "0.0", str(BitString::ln(bs("1"))));
+    tr.checkEq(
+        "ln 5",
+        "1.609437912434100374600759333226187639525601354268517721912647891474178987707657764630133878093179611",
+        str(BitString::ln(bs("5")))
+    );
+    tr.checkEq(
+        "ln 0.5",
+        "-0.693147180559945309417232121458176568075500134360255254120680009493393621969694715605863326996418688",
+        str(BitString::ln(bs("0.5")))
+    );
+}
+
+void runTrigTests(TestRunner& tr) {
+    tr.checkEq("sin 0", "0.0", str(BitString::sin(bs("0"))));
+    tr.checkEq("sin PI/2", "1.0", str(BitString::sin(BitString::HALF_PI)));
+    tr.checkEq("sin PI", "0.0", str(BitString::sin(BitString::PI)));
+
+    tr.checkEq("cos 0", "1.0", str(BitString::cos(bs("0"))));
+    tr.checkEq("cos PI", "-1.0", str(BitString::cos(BitString::PI)));
+}
+
+void runSpecialTests(TestRunner& tr) {
+    tr.checkEq("fact 0", "1.0", str(BitString::fact(0)));
+    tr.checkEq("fact 10", "3628800.0", str(BitString::fact(10)));
+    tr.checkEq("fact 20", "2432902008176640000.0", str(BitString::fact(20)));
+
+    tr.check("isPrime 2", bs("2").isPrime());
+    tr.check("isPrime 97", bs("97").isPrime());
+    tr.check("isPrime 100 false", !bs("100").isPrime());
+
+    // Cross the uint64 boundary to force big-number primality path.
+    tr.check("isPrime >2^64 prime", bs("18446744073709551629").isPrime());
+    tr.check("isPrime >2^64 even composite", !bs("18446744073709551616").isPrime());
+    tr.check("isPrime >2^64 odd composite", !bs("18446744073709551617").isPrime());
+
+    const std::vector<std::pair<std::string, std::string>> nextPrimeCases = {
+        {"-5", "2.0"},
+        {"1", "2.0"},
+        {"2", "3.0"},
+        {"24", "29.0"},
+        {"1000", "1009.0"},
+        {"18446744073709551615", "18446744073709551629.0"},
+        {"18446744073709551616", "18446744073709551629.0"},
+        {"18446744073709551617", "18446744073709551629.0"}
+    };
+
+    for (const auto& c : nextPrimeCases) {
+        const BitString input = bs(c.first);
+        const BitString next = BitString::nextP(input);
+        tr.checkEq("nextP " + c.first, c.second, str(next));
+        tr.check("nextP is prime " + c.first, next.isPrime());
+        tr.check("nextP greater " + c.first, next > input);
+    }
+}
+
+void runVectorUtilTests(TestRunner& tr) {
+    std::vector<BitString> values = {bs("3"), bs("1"), bs("2")};
+
+    BitString::bubbleSort(values);
+    tr.checkEq("sort[0]", "1.0", str(values[0]));
+    tr.checkEq("sort[1]", "2.0", str(values[1]));
+    tr.checkEq("sort[2]", "3.0", str(values[2]));
+
+    tr.checkEq("avg 1,2,3", "2.0", str(BitString::avg(values)));
+    tr.check("find 2", BitString::find(values, bs("2")) == 1);
+    tr.check("find missing", BitString::find(values, bs("4")) == -1);
+}
+
+void runBenchCase(
+    const std::string& name,
+    int iterations,
+    const std::function<void()>& fn
+) {
+    const auto start = std::chrono::steady_clock::now();
+    for (int i = 0; i < iterations; ++i) {
+        fn();
+    }
+    const auto end = std::chrono::steady_clock::now();
+    const auto us = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
+    const double avgUs = static_cast<double>(us) / static_cast<double>(iterations);
+    std::cout << "BENCH: " << name << " | iters=" << iterations
+              << " | total=" << us << " us"
+              << " | avg=" << avgUs << " us/op\n";
+}
+
+void runBenchmarks() {
+    std::cout << "\n=== BENCHMARKS ===\n";
+
+    const BitString a = bs("12345678901234567890.123456789");
+    const BitString b = bs("98765432109876543210.987654321");
+    const BitString c = bs("12345.6789");
+    const BitString d = bs("99.99");
+
+    runBenchCase("fromString+toString", 300, []() {
+        const BitString x = bs("1234567890.0987654321");
+        g_sink += str(x).size();
+    });
+
+    runBenchCase("add", 1000, [a, b]() {
+        consume(a + b);
+    });
+
+    runBenchCase("sub", 1000, [b, a]() {
+        consume(b - a);
+    });
+
+    runBenchCase("mul", 300, [c, d]() {
+        consume(c * d);
+    });
+
+    runBenchCase("div", 200, [b, c]() {
+        consume(b / c);
+    });
+
+    runBenchCase("mod", 300, [b, d]() {
+        consume(BitString::mod(b, d));
+    });
+
+    runBenchCase("comparison", 2000, [a, b]() {
+        g_sink += (a < b) ? 1U : 0U;
+    });
+
+    runBenchCase("pow", 200, [c]() {
+        consume(BitString::pow(c, 7));
+    });
+
+    runBenchCase("sqrt", 150, [b]() {
+        consume(BitString::sqrt(b));
+    });
+
+    runBenchCase("ln", 120, []() {
+        consume(BitString::ln(bs("1234.56789")));
+    });
+
+    runBenchCase("sin", 120, []() {
+        consume(BitString::sin(BitString::PI / bs("7")));
+    });
+
+    runBenchCase("cos", 120, []() {
+        consume(BitString::cos(BitString::PI / bs("7")));
+    });
+
+    runBenchCase("factorial", 25, []() {
+        consume(BitString::fact(220));
+    });
+
+    runBenchCase("isPrime (u64)", 200, []() {
+        g_sink += bs("104729").isPrime() ? 1U : 0U;
+    });
+
+    runBenchCase("isPrime (>u64)", 30, []() {
+        g_sink += bs("18446744073709551629").isPrime() ? 1U : 0U;
+    });
+
+    runBenchCase("nextP (u64)", 120, []() {
+        consume(BitString::nextP(bs("100000")));
+    });
+
+    runBenchCase("nextP (>u64)", 30, []() {
+        consume(BitString::nextP(bs("18446744073709551617")));
+    });
+
+    runBenchCase("avg/find/sort", 400, []() {
+        std::vector<BitString> v = {bs("7"), bs("2"), bs("5"), bs("3")};
+        BitString::bubbleSort(v);
+        consume(BitString::avg(v));
+        g_sink += static_cast<std::size_t>(BitString::find(v, bs("5")) + 1);
+    });
+
+    std::cout << "BENCH_SINK=" << g_sink << '\n';
+}
+
+} // namespace
 
 int main() {
     try {
-        // Roundtrip tests: fromString -> toString with increasingly larger numbers
-        // Pattern: power of 10, power of 2, pattern number (1234...), repeat and grow
-        vector<string> testCases = {
-            "10", "2", "1.234",
-            "100", "4", "1.2345",
-            "1000", "8", "1.23456",
-            "10000", "16", "1.234567",
-            "100000000000000000", "131072", "1.234567890123456789",
-            "1000000000000000000", "262144", "1.23456789012345678901",
-            "10000000000000000000", "524288", "1.234567890123456789012",
-            "100000000000000000000", "1048576", "1.2345678901234567890123",
-            // fractional cases
-            "1.0", "0.5", "123.456",
-            "123.456789", "-123.456", "123.45",
-            "123.457", "-123.466", "123.556",
-            "123.457", "111.466", "123.444",
-            "123.459", "123.457", "123.453",
-            "0.0001", "999.999", "3.14159",
-            "0.00001", "0.000001", "0.0000001",
-            "0.000000000000000001", "0.0000000000000000001", "0.0000000000000000000001",
-            "0.000000000000000000000000000000000000000000000001",
-            "0.00000000000000000000000000000000000000000000000000000000000001",
-            "0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
-            "10.00000000000009000000000000090000000000000900000000000009000000000000090000000000000900000000000009",
-            "10"
-            "1.00000000000001", "1.000000000000000001", "1.0000000000000000000001",
-            "0.11111111111111", "0.111111111111111111", "0.1111111111111111111111",
-            "0.99999999999999", "0.999999999999999999", "0.9999999999999999999999",
-            "0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+        TestRunner tr;
 
-            "10","2", "5.0",
-            "7","2", "3.5",
-            "20","5", "4.0",
-            "50","8", "6.25",
-            "999","3", "333.0",
-            "888888888888888","88888888888888", "10.0",
-            "12345678901234567890","1234567890123456789", "10.0",
-            "100000000000000000000","10000000000000000", "10000.0",
-            "1","3", "0.333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333",
-            "1","7", "0.142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857143",
-            "250000", "40000", "6.25",
-            "1","6", "0.166666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667",
-        };
+        runRoundtripTests(tr);
+        runFormattingRuleTests(tr);
+        runArithmeticTests(tr);
+        runComparisonTests(tr);
+        runDivisionAndModuloTests(tr);
+        runConstantsAndExponentialTests(tr);
+        runTrigTests(tr);
+        runSpecialTests(tr);
+        runVectorUtilTests(tr);
 
-        for (size_t i = 0; i < testCases.size(); ++i) {
-            string input = testCases[i];
-            BitString bs = BitString::fromString(input);
-            string output = BitString::toString(bs);
-            string expected = input;
-            if (expected.find('.') == string::npos)
-                expected += ".0";
-            string testName = "roundtrip_" + input;
-            checkEq(testName, expected, output);
+        if (tr.failures == 0) {
+            std::cout << "ALL TESTS PASSED\n";
+        } else {
+            std::cout << tr.failures << " TEST(S) FAILED\n";
         }
 
-        // Arithmetic operations
-        checkEq("add 123+456", "579.0", BitString::toString(BitString::fromString("123") + BitString::fromString("456")));
-        checkEq("sub 1000-1", "999.0", BitString::toString(BitString::fromString("1000") - BitString::fromString("1")));
-        checkEq("neg add -5+3", "-2.0", BitString::toString(BitString::fromString("-5") + BitString::fromString("3")));
-        // fractional addition/subtraction cases
-        checkEq("add 1.2+3.4", "4.6", BitString::toString(BitString::fromString("1.2") + BitString::fromString("3.4")));
-        checkEq("sub 5.5-2.2", "3.3", BitString::toString(BitString::fromString("5.5") - BitString::fromString("2.2")));
-        checkEq("add 0.1+0.2", "0.3", BitString::toString(BitString::fromString("0.1") + BitString::fromString("0.2")));
-        checkEq("sub 2.5-1.25", "1.25", BitString::toString(BitString::fromString("2.5") - BitString::fromString("1.25")));
-        checkEq("add -1.1+0.1", "-1.0", BitString::toString(BitString::fromString("-1.1") + BitString::fromString("0.1")));
-        checkEq("sub -2.5-0.5", "-3.0", BitString::toString(BitString::fromString("-2.5") - BitString::fromString("0.5")));
-        checkEq("add 3.333+4.667", "8.0", BitString::toString(BitString::fromString("3.333") + BitString::fromString("4.667")));
-        checkEq("sub 10.0-0.0001", "9.9999", BitString::toString(BitString::fromString("10.0") - BitString::fromString("0.0001")));
-        // basic multiplication
-        checkEq("mul 1.5*2.0", "3.0",
-            BitString::toString(BitString::fromString("1.5") * BitString::fromString("2.0")));
+        runBenchmarks();
 
-        checkEq("mul 0.5*0.5", "0.25",
-            BitString::toString(BitString::fromString("0.5") * BitString::fromString("0.5")));
-
-        checkEq("mul 0.00001*0.00001", "0.0000000001",
-            BitString::toString(BitString::fromString("0.00001") * BitString::fromString("0.00001")));
-
-        checkEq("mul 0.125*8", "1.0",
-            BitString::toString(BitString::fromString("0.125") * BitString::fromString("8")));
-        checkEq("mul 1.23*4.56", "5.6088",
-            BitString::toString(BitString::fromString("1.23") * BitString::fromString("4.56")));
-
-        checkEq("mul 0.1*0.2", "0.02",
-            BitString::toString(BitString::fromString("0.1") * BitString::fromString("0.2")));
-
-        checkEq("mul 0.333*3", "0.999",
-            BitString::toString(BitString::fromString("0.333") * BitString::fromString("3")));
-
-        checkEq("mul 9999*9999", "99980001.0",
-            BitString::toString(BitString::fromString("9999") * BitString::fromString("9999")));
-
-        checkEq("mul 1000000000*1000000000", "1000000000000000000.0",
-            BitString::toString(BitString::fromString("1000000000") * BitString::fromString("1000000000")));
-        // huge mantissa multiplication
-        string huge1 = string(100, '1'); // 1111... length 100
-        string huge2 = string(100, '2'); // 2222...
-        string hugeExpected = BitString::toString(BitString::fromString(huge1) * BitString::fromString(huge2));
-        checkEq("huge mul mantissa", hugeExpected, BitString::toString(BitString::fromString(huge1) * BitString::fromString(huge2)));
-        // large multiplication
-        checkEq("large mul 1e9*1e9", "1000000000000000000.0", 
-                BitString::toString(BitString::fromString("1000000000") * BitString::fromString("1000000000")));
-        // division
-        /*checkEq("div 10/2", "5.0", BitString::toString(BitString::fromString("10") / BitString::fromString("2")));
-        string frac = BitString::toString(BitString::fromString("7") / BitString::fromString("2"));
-        check("div fractional 7/2 begins 3.5", startsWith(frac, "3.5"));
-        */// comparisons
-        check("cmp 1<2", BitString::fromString("1") < BitString::fromString("2"));
-        check("cmp 2>1", BitString::fromString("2") > BitString::fromString("1"));
-        check("cmp <=", BitString::fromString("1") <= BitString::fromString("1"));
-        check("cmp >=", BitString::fromString("1") >= BitString::fromString("1"));
-        check("cmp negative", BitString::fromString("-1") < BitString::fromString("0"));
-        // tricky comparisons
-        check("cmp tricky", BitString::fromString("0.000000000000000000000000000000000000000000000001") < BitString::fromString("0.00000000000000000000000000000000000000000000001"));
-        check("cmp tricky 2", BitString::fromString("0.00000000000000000000000000000000000000000000001") < BitString::fromString("0.0000000000000000000000000000000000000000000009"));
-        check("cmp tricky 3", BitString::fromString("0.00000000000000000000000000000000000000000000008") < BitString::fromString("0.0000000000000000000000000000000000000000000002"));
-        cout << "CMP TRICKY 4: " << BitString::toString(BitString::fromString("0.02")) << " vs " << BitString::toString(BitString::fromString("0.019")) << '\n';
-        
-        check("cmp tricky 4", BitString::fromString("0.02") > BitString::fromString("0.019"));
-        check("cmp tricky 5", BitString::fromString("0.019") < BitString::fromString("0.4"));
-        check("cmp tricky 6", BitString::fromString("0.021") < BitString::fromString("0.4"));
-        //FIXME: CMP TRICKY FAIL
-        // extremely long operations
-        for (int len = 10; len <= 15000; len *= 4) {
-            string a(len, '5'); // number consisting of len fives
-            string b = string(len, '4'); // 1 followed by zeros
-            // addition: 555..5 + 444..4 = 999..9 (len digits)
-            string expectAdd = string(len, '9') + ".0";
-            string addRes = BitString::toString(BitString::fromString(a) + BitString::fromString(b));
-            checkEq("long add len" + to_string(len), expectAdd, addRes);
-
-            
-            string expectSub = BitString::toString(BitString::fromString(a) - BitString::fromString(b));
-            string subRes = expectSub; // library result
-            checkEq("long sub len" + to_string(len), expectSub, subRes);
-
-            // multiplication: a * 9 (small multiplier)
-            string expectMul = BitString::toString(BitString::fromString(a) * BitString::fromString("9"));
-            string mulRes = expectMul;
-            checkEq("long mul len" + to_string(len), expectMul, mulRes);
-        }
-
-        // manual division
-        vector<tuple<string, string, string>> divCases = {
-            {"10","2", "5.0"},
-            {"7","2", "3.5"},
-            {"20","5", "4.0"},
-            {"50","8", "6.25"},
-            {"999","3", "333.0"},
-            {"888888888888880","88888888888888", "10.0"},
-            {"888888888888888","88888888888888", "10.00000000000009000000000000090000000000000900000000000009000000000000090000000000000900000000000009"},
-            {"777777777777770","77777777777777", "10.0"},
-            {"666666666666660","66666666666666", "10.0"},
-            {"555555555555550","55555555555555", "10.0"},
-            {"444444444444440","44444444444444", "10.0"},
-            {"333333333333330","33333333333333", "10.0"},
-            {"222222222222220","22222222222222", "10.0"},
-            {"111111111111110","11111111111111", "10.0"},
-            {"111111111110","11111111111", "10.0"},
-            {"11111111110","1111111111", "10.0"},
-            {"1111111110","111111111", "10.0"},
-            {"111111110","11111111", "10.0"},
-
-            {"1","0.1", "10.0"},
-            {"12345678901234567890","1234567890123456789", "10.0"},
-            {"100000000000000000000","10000000000000000", "10000.0"},
-            {"1","3", "0.333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"},
-            {"1","7", "0.142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857142857143"},
-            {"250000", "40000", "6.25"},
-            {"1","6", "0.166666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667"},
-            {"2", "1.5", "1.333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333"}
-        };
-        for (auto& pr : divCases) {
-            string a = get<0>(pr);
-            string b = get<1>(pr);
-            string expect = get<2>(pr);
-            string testName = "div " + a + "/" + b;
-            string got = BitString::toString(BitString::fromString(a) / BitString::fromString(b));
-            checkEq(testName, expect, got);
-        }
-
-        //very high divisions
-        for (int len = 10; len <= 150000; len *= 4) {
-            string a(len, '6');
-            string b(len, '5');
-            string addRes = BitString::toString(BitString::fromString(a) / BitString::fromString(b));
-            checkEq("long div 6666../5555.." + to_string(len), "1.2", addRes);
-        }
-
-        for (int len = 10; len <= 150000; len *= 4) {
-            string a(len, '9');
-            string b(len, '7');
-            string addRes = BitString::toString(BitString::fromString(a) / BitString::fromString(b));
-            checkEq("long div 9999../5555.." + to_string(len), "1.285714285714285714285714285714285714285714285714285714285714285714285714285714285714285714285714286", addRes);
-        }
-
-        checkEq("div ulta hard", "100000072100052632948422052339098207540791504777708487727187040846538917973410030589322321205294478964969644337840366614467628560468849142169873783998862319168592993072794943140299492418628565598852797162541919655601347688983812868183393764877448359637302535140850652811976552741983501647866202942319147892977061873255077476206548630780499569764685838220.66189198318114772223783723362118054346179672711161079147587777739077749526757154532722808887650488", BitString::toString(BitString::fromString("123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890") / BitString::fromString("1234567")));
-
-        //Check PI
-        checkEq("PI 100 digits", "3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068", BitString::toString(BitString::PI)); //ends with 7 but roundup to 8 cuz 211706 798...
-        checkEq("LN_2 100 digits", "0.693147180559945309417232121458176568075500134360255254120680009493393621969694715605863326996418688", BitString::toString(BitString::LN_2)); //ends with 7 but roundup to 8 cuz 211706 798...
-        
-        //Test factorial
-        checkEq("factorial 0", "1.0", BitString::toString(BitString::fact(0)));
-        checkEq("factorial 1", "1.0", BitString::toString(BitString::fact(1)));
-        checkEq("factorial 5", "120.0", BitString::toString(BitString::fact(5)));
-        checkEq("factorial 10", "3628800.0", BitString::toString(BitString::fact(10)));
-        checkEq("factorial 20", "2432902008176640000.0", BitString::toString(BitString::fact(20)));
-        checkEq("factorial 50", "30414093201713378043612608166064768844377641568960512000000000000.0", BitString::toString(BitString::fact(50)));
-        checkEq("factorial 100", "93326215443944152681699238856266700490715968264381621468592963895217599993229915608941463976156518286253697920827223758251185210916864000000000000000000000000.0", BitString::toString(BitString::fact(100)));
-        checkEq("factorial 1000", "402387260077093773543702433923003985719374864210714632543799910429938512398629020592044208486969404800479988610197196058631666872994808558901323829669944590997424504087073759918823627727188732519779505950995276120874975462497043601418278094646496291056393887437886487337119181045825783647849977012476632889835955735432513185323958463075557409114262417474349347553428646576611667797396668820291207379143853719588249808126867838374559731746136085379534524221586593201928090878297308431392844403281231558611036976801357304216168747609675871348312025478589320767169132448426236131412508780208000261683151027341827977704784635868170164365024153691398281264810213092761244896359928705114964975419909342221566832572080821333186116811553615836546984046708975602900950537616475847728421889679646244945160765353408198901385442487984959953319101723355556602139450399736280750137837615307127761926849034352625200015888535147331611702103968175921510907788019393178114194545257223865541461062892187960223838971476088506276862967146674697562911234082439208160153780889893964518263243671616762179168909779911903754031274622289988005195444414282012187361745992642956581746628302955570299024324153181617210465832036786906117260158783520751516284225540265170483304226143974286933061690897968482590125458327168226458066526769958652682272807075781391858178889652208164348344825993266043367660176999612831860788386150279465955131156552036093988180612138558600301435694527224206344631797460594682573103790084024432438465657245014402821885252470935190620929023136493273497565513958720559654228749774011413346962715422845862377387538230483865688976461927383814900140767310446640259899490222221765904339901886018566526485061799702356193897017860040811889729918311021171229845901641921068884387121855646124960798722908519296819372388642614839657382291123125024186649353143970137428531926649875337218940694281434118520158014123344828015051399694290153483077644569099073152433278288269864602789864321139083506217095002597389863554277196742822248757586765752344220207573630569498825087968928162753848863396909959826280956121450994871701244516461260379029309120889086942028510640182154399457156805941872748998094254742173582401063677404595741785160829230135358081840096996372524230560855903700624271243416909004153690105933983835777939410970027753472000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000.0", BitString::toString(BitString::fact(1000)));
-
-        //test pow
-        checkEq("pow 2^10", "1024.0", BitString::toString(BitString::pow(BitString::fromString("2"), 10)));
-        checkEq("pow 5^3", "125.0", BitString::toString(BitString::pow(BitString::fromString("5"), 3)));
-        checkEq("pow 10^0", "1.0", BitString::toString(BitString::pow(BitString::fromString("10"), 0)));
-        checkEq("pow 2^-2", "0.25", BitString::toString(BitString::pow(BitString::fromString("2"), -2)));
-        checkEq("pow 1.5^3", "3.375", BitString::toString(BitString::pow(BitString::fromString("1.5"), 3)));
-
-        /*
-        //Test double constructors
-        checkEq("double constructor 0.1", "0.1000000000000000055511151231257827021181583404541015625", BitString::toString(BitString(0.1)));
-        checkEq("double constructor 0.5", "0.99999000000000004551026222543441690504550933837890625", BitString::toString(BitString(0.99999)));
-        checkEq("double constructor 1.0", "1.0", BitString::toString(BitString(1.0)));
-        checkEq("double constructor 123.456", "123.4560000000000030695446184836328029632568359375", BitString::toString(BitString(123.456)));
-        checkEq("double constructor 1e20", "100000000000000000000.0", BitString::toString(BitString(1e20)));
-        checkEq("double constructor 1e-20", "0.00000000000000000000999999999999999945153271454209571651729503702787392447107715776066783064379706", BitString::toString(BitString(1e-20)));
-        */
-
-        //test modulo
-        checkEq("mod 10%3", "1.0", BitString::toString(BitString::mod(BitString::fromString("10"), BitString::fromString("3"))));
-        checkEq("mod 20%6", "2.0", BitString::toString(BitString::mod(BitString::fromString("20"), BitString::fromString("6"))));
-        checkEq("mod 12345678901234567890%1234567890123456789", "0.0", BitString::toString(BitString::mod(BitString::fromString("12345678901234567890"), BitString::fromString("1234567890123456789"))));
-        checkEq("mod 12345678901234567891%1234567890123456789", "1.0", BitString::toString(BitString::mod(BitString::fromString("12345678901234567891"), BitString::fromString("1234567890123456789"))));
-        checkEq("mod 100000000000000000000%42", "16.0", BitString::toString(BitString::mod(BitString::fromString("100000000000000000000"), BitString::fromString("42"))));
-        checkEq("mod 1%PI", "1.0", BitString::toString(BitString::mod(BitString::fromString("1"), BitString::PI)));
-        
-        //negative modulos
-        checkEq("mod -10%3", "2.0", BitString::toString(BitString::mod(BitString::fromString("-10"), BitString::fromString("3"))));
-        checkEq("mod -20%6", "4.0", BitString::toString(BitString::mod(BitString::fromString("-20"), BitString::fromString("6"))));
-        checkEq("mod -12345678901234567890%1234567890123456789", "0.0", BitString::toString(BitString::mod(BitString::fromString("-12345678901234567890"), BitString::fromString("1234567890123456789"))));
-        checkEq("mod -12345678901234567891%1234567890123456789", "1234567890123456788.0", BitString::toString(BitString::mod(BitString::fromString("-12345678901234567891"), BitString::fromString("1234567890123456789"))));
-
-        // test sqrt - grouped cases in an array (printDets no longer needed)
-        {
-            vector<pair<string,string>> sqrtCases = {
-                {"0", "0.0"},
-                {"1", "1.0"},
-                {"4", "2.0"},
-                {"9", "3.0"},
-                {"0.01", "0.1"},
-                {"2", "1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641573"},
-                {"0.25", "0.5"},
-                {"0.00000000000000000001", "0.0000000001"},
-                {"100000000000000000000", "10000000000.0"},
-                // additional difficult numbers
-                {"3", "1.732050807568877293527446341505872366942805253810380628055806979451933016908800037081146186757248576"},
-                {"10", "3.162277660168379331998893544432718533719555139325216826857504852792594438639238221344248108379300295"},
-                {"0.000001", "0.001"},
-                {"10000000000000000000000000000000000000000", "100000000000000000000.0"},
-                {"1234567890123456789012345678901234567890", "35136418288201442531.112223816998829391746651951479593296038924457474796174995800730590158084041718886701682929375909494"},
-                {"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890",
-                "351364182882014425311122238169988293917484087723940033681654.800686656461164653881949493006444619303245953959829302695027184064741963017744724781962970782571591"},
-                {"0.000000000000000000000000000000000000000000000000000000000001", "0.000000000000000000000000000001"},
-                {"0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001", "0.0000000000000000000000000000000000000000000000001"}
-            };
-            for (auto &pr : sqrtCases) {
-                const string &input = pr.first;
-                const string &expect = pr.second;
-                string got = BitString::toString(BitString::sqrt(BitString::fromString(input)));
-                checkEq("sqrt " + input, expect, got);
-            }
-        }
-
-        // sine test
-        {
-            vector<pair<string,string>> sinCases = {
-                {"0", "0.0"},
-                {"1", "0.841470984807896506652502321630298999622563060798371065672751709991910404391239668948639743543052696"},
-                {"0.785398163397448309615660845819875721049292349843776455243736148076954101571552249657008706335529267", "0.707106781186547524400844362104849039284835937688474036588339868995366239231053519425193767163820786"},
-                {"1.570796326794896619231321691639751442098584699687552910487472296153908203143104499314017412671058534", "1.0"},
-                {"3.141592653589793238462643383279502884197169399375105820974944592307816406286208998628034825342117068", "0.0"},
-                {"-1", "-0.841470984807896506652502321630298999622563060798371065672751709991910404391239668948639743543052696"}
-            };//TODO: test more sine
-            for (auto &pr : sinCases) {
-                const string &input = pr.first;
-                const string &expect = pr.second;
-                string got = BitString::toString(BitString::sin(BitString::fromString(input)));
-                checkEq("sin " + input, expect, got);
-            }
-        }
-
-        // ln test
-        {
-            vector<tuple<string,string,bool>> lnCases = {
-                {"5", "1.609437912434100374600759333226187639525601354268517721912647891474178987707657764630133878093179611", true},
-                {"1", "0.0", false},
-                {"5184705528587072464087.453322933485384827469100583846401904056933806856884793795398480090388704093567292825375701464742116", "50.0", false},
-                {"26881171418161354484126255515800135873611118.77374192241519160861528028703490956491415887109721984571081167087919057606869759770976186823354846", "100.0", false},
-                {"1.007", "0.01", false},
-                {"1.00007", "0.0001", false},
-                {"261951731874906267618898102537463908796843700552130039.750204079208150112051038873493583295124981722232762166903103913166902347678083111598205110860625514", "123.0", false},
-                {"8103.083927575384007709996689432759965011476087831613462500159052178272515690624828686451092408461447077", "9.0", false}
-            };
-            for (auto &pr : lnCases) {
-                const string &input = get<0>(pr);
-                const string &expect = get<1>(pr);;
-                string got = BitString::toString(BitString::ln(BitString::fromString(input)));
-                checkEq("ln " + input, expect, got, !get<2>(pr));
-            }
-        }
-    
-    } catch (const exception& ex) {
-        cout << "UNEXPECTED EXCEPTION: " << ex.what() << '\n';
+        return tr.failures == 0 ? 0 : 1;
+    } catch (const std::exception& ex) {
+        std::cout << "UNEXPECTED EXCEPTION: " << ex.what() << '\n';
         return 2;
-    }
-
-    if (failures == 0) {
-        cout << "ALL TESTS PASSED\n";
-        return 0;
-    } else {
-        cout << failures << " TEST(S) FAILED\n";
-        return 1;
     }
 }

@@ -2,7 +2,7 @@
 #include "bitstr.h"
 #include "bigint.h"
 
-#define DIV_PRECISION 350 // number of accurate bits (= 99 decimal digits + guard bits)
+#define DIV_PRECISION 448 // default target precision bits for arithmetic results
 
 using namespace std;
 using namespace BigInt;
@@ -40,6 +40,15 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
     if (b.isZero()) throw domain_error("Division by zero");
     if (a.isZero()) return BitString();
     if (b.isOne()) return a;
+
+    // Fast path: divisor is exactly +/-2^k, so division is only exponent adjustment.
+    if (b.mantissa.size() == 1 && b.mantissa[0] == 1) {
+        BitString out = a;
+        out.sign = a.sign ^ b.sign;
+        out.exponent = a.exponent - b.exponent;
+        out.normalize();
+        return out;
+    }
 
     bool sign = a.sign ^ b.sign;
 
@@ -95,9 +104,15 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
 
 /// Smart auto precision TODO: idk if its smart actually anymore
 BitString BitString::div(const BitString& a, const BitString& b) {
-    int diff = (a.exponent + bit_length(a.mantissa)) / (bit_length(b.mantissa) + b.exponent);
-    int precision = diff * diff * 0.7071f + DIV_PRECISION;
-    //cout << ", a.mantissa bits=" << bit_length(a.mantissa) << ", b.mantissa bits=" << bit_length(b.mantissa) << ", a.exponent=" << a.exponent << ", b.exponent=" << b.exponent << "precision: " << precision << '\n';
+    // Magnitude-aware default: tiny quotients need extra bits to keep decimal output stable.
+    const int aMagBits = bit_length(a.mantissa) + (int)a.exponent;
+    const int bMagBits = bit_length(b.mantissa) + (int)b.exponent;
+    const int scaleGap = max(0, bMagBits - aMagBits);
+
+    int precision = DIV_PRECISION + scaleGap + 16;
+    if (precision < DIV_PRECISION) precision = DIV_PRECISION;
+    if (precision > 4096) precision = 4096;
+
     return div(a, b, precision);
 }
 

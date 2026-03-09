@@ -4,6 +4,20 @@
 
 namespace BigInt {
 
+static void bigint_sub_in_place(std::vector<uint32_t>& a, const std::vector<uint32_t>& b) {
+    uint64_t borrow = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        const uint64_t av = a[i];
+        const uint64_t bv = (i < b.size()) ? b[i] : 0;
+        const uint64_t sub = av - bv - borrow;
+        borrow = (av < (bv + borrow)) ? 1 : 0;
+        a[i] = (uint32_t)sub;
+    }
+    while (a.size() > 1 && a.back() == 0) {
+        a.pop_back();
+    }
+}
+
 void left_shift(std::vector<uint32_t>& v, unsigned int bits) {
     if (bits == 0) return;
     int int_shift = bits / 32;
@@ -114,16 +128,27 @@ void bigint_div(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b, 
     int lenA = bit_length(a);
     int lenB = bit_length(b);
     int qbits = lenA - lenB; // max possible bit index of quotient
-    quot.assign(1, 0);
+
+    quot.assign((qbits / 32) + 1, 0);
     rem = a;
+
+    std::vector<uint32_t> bShift = b;
+    left_shift(bShift, qbits);
+
     for (int i = qbits; i >= 0; --i) {
-        std::vector<uint32_t> Bshift = b;
-        left_shift(Bshift, i);
-        if (bigint_cmp(rem, Bshift) >= 0) {
-            rem = bigint_sub(rem, Bshift);
-            bigint_add_pow2(quot, i);
+        if (bigint_cmp(rem, bShift) >= 0) {
+            bigint_sub_in_place(rem, bShift);
+            quot[i / 32] |= (1u << (i % 32));
+        }
+
+        if (i > 0) {
+            right_shift(bShift, 1);
+            while (bShift.size() > 1 && bShift.back() == 0) {
+                bShift.pop_back();
+            }
         }
     }
+
     while (quot.size() > 1 && quot.back() == 0) quot.pop_back();
     while (rem.size() > 1 && rem.back() == 0) rem.pop_back();
 }

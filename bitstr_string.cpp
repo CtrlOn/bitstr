@@ -3,7 +3,7 @@
 #include "bigint.h"
 
 #define DEC_FRAC_OUT 99 // How many decimal digits after comma to output
-#define BIN_FRAC_IN 340 // How many binary digits after comma to input (99 * log2(10) + guard bits)
+#define BIN_FRAC_IN 448 // Input precision guard for stable 99-digit output through arithmetic chains
 
 using namespace std;
 using namespace BigInt;
@@ -36,6 +36,32 @@ static string bigIntToString(const vector<uint32_t>& num) {
     }
     reverse(digits.begin(), digits.end());
     return digits;
+}
+
+static bool isZeroVec(const vector<uint32_t>& v) {
+    return v.size() == 1 && v[0] == 0;
+}
+
+static vector<uint32_t> lowBits(const vector<uint32_t>& v, int bits) {
+    if (bits <= 0) {
+        return {0};
+    }
+
+    vector<uint32_t> out((bits + 31) / 32, 0);
+    const size_t copyWords = min(out.size(), v.size());
+    for (size_t i = 0; i < copyWords; ++i) {
+        out[i] = v[i];
+    }
+
+    const int remBits = bits & 31;
+    if (remBits != 0 && !out.empty()) {
+        out.back() &= ((1u << remBits) - 1u);
+    }
+
+    while (out.size() > 1 && out.back() == 0) {
+        out.pop_back();
+    }
+    return out;
 }
 
 BitString BitString::fromString(const string& str, int bitsPrecision) {
@@ -125,17 +151,23 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
 BitString BitString::fromString(const string& s) {
     int fractionals = 0;
     size_t point = s.find('.');
-    if (point != ::string::npos) {
-        fractionals = (int)(s.size() - s.find('.') - 1);
+    if (point != string::npos) {
+        fractionals = (int)(s.size() - point - 1);
     }
-    float precision = s.find('.') != string::npos ? BIN_FRAC_IN * (fractionals * 1.414f) : 1;
-    return fromString(s, (int)precision + 1);
+
+    int precision = 1;
+    if (point != string::npos) {
+        // 1 decimal digit needs log2(10) bits; 4 bits per digit + guard keeps conversion accurate.
+        precision = max(BIN_FRAC_IN, fractionals * 4 + 16);
+    }
+
+    return fromString(s, precision);
 }
 
 string BitString::toString(const BitString& value, int decFracDigits) {
     if (value.isZero()) return "0.0";
     string result;
-    
+
     if (value.sign) result += '-';
 
     BitString absValue = value;
@@ -144,36 +176,54 @@ string BitString::toString(const BitString& value, int decFracDigits) {
     int64_t exponent = absValue.exponent;
     vector<uint32_t> mantissa = absValue.mantissa;
 
-    vector<uint32_t> numerator = mantissa;
-    vector<uint32_t> denominator = {1};
+    vector<uint32_t> intPart;
+    vector<uint32_t> remainder;
+    int fracBits = 0;
+
+    // For normalized BitString values, denominator is always a power of two.
     if (exponent >= 0) {
-        left_shift(numerator, (int)exponent);
+        intPart = mantissa;
+        left_shift(intPart, (int)exponent);
+        remainder = {0};
     } else {
-        left_shift(denominator, (int)(-exponent));
+        fracBits = (int)(-exponent);
+        intPart = mantissa;
+        right_shift(intPart, fracBits);
+        remainder = lowBits(mantissa, fracBits);
     }
 
-    vector<uint32_t> intPart, remainder;
-    bigint_div(numerator, denominator, intPart, remainder);
     string intStr = bigIntToString(intPart);
 
-    if (remainder.empty() || (remainder.size() == 1 && remainder[0] == 0)) {
+    if (isZeroVec(remainder)) {
         result += intStr + ".0";
         return result;
     }
 
     string fracDigits;
-    for (size_t i = 0; i < (size_t)decFracDigits + 1; ++i) {
+    const int totalFracDigits = decFracDigits + 1;
+
+    for (int i = 0; i < totalFracDigits; ++i) {
         bigint_mul_int(remainder, 10);
-        vector<uint32_t> digitVec, newRem;
-        bigint_div(remainder, denominator, digitVec, newRem);
+
+        vector<uint32_t> digitVec = remainder;
+        right_shift(digitVec, fracBits);
         uint32_t digit = digitVec.empty() ? 0 : digitVec[0];
+        if (digit > 9) {
+            digit = 9;
+        }
+
         fracDigits.push_back('0' + (char)digit);
-        remainder = newRem;
-        if (remainder.empty() || (remainder.size() == 1 && remainder[0] == 0)) {
+
+        vector<uint32_t> sub = {digit};
+        left_shift(sub, fracBits);
+        remainder = bigint_sub(remainder, sub);
+
+        if (isZeroVec(remainder)) {
             break;
         }
     }
-    while (fracDigits.size() < (size_t)decFracDigits + 1) {
+
+    while (fracDigits.size() < (size_t)totalFracDigits) {
         fracDigits.push_back('0');
     }
 
@@ -199,12 +249,16 @@ string BitString::toString(const BitString& value, int decFracDigits) {
         }
     }
 
-    while (!frac.empty() && frac.back() == '0') {
-        frac.pop_back();
+    result += intStr;
+    bool isZeroFrac = true;
+    for (char c : frac) {
+        if (c != '0') {
+            isZeroFrac = false;
+            break;
+        }
     }
 
-    result += intStr;
-    if (frac.empty()) {
+    if (isZeroFrac) {
         result += ".0";
         if (intStr == "0") return "0.0"; // Fix '-0.0'
     } else {
