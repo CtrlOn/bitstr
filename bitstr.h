@@ -9,10 +9,12 @@
 #include <sstream>
 #include <utility>
 
+#include "limb_config.h"
+
 class BitString {
 private:
     bool sign;
-    std::vector<uint32_t> mantissa;
+    std::vector<limb_t> mantissa;
     int64_t exponent;
 
     void normalize();
@@ -20,7 +22,7 @@ private:
     BitString truncate(int bits) const;
 public:
     BitString();
-    BitString(const bool sign, const std::vector<uint32_t>& mantissa, int64_t exponent);//TODO: hide
+    BitString(const bool sign, const std::vector<limb_t>& mantissa, int64_t exponent);//TODO: hide
     BitString(const BitString& other);
     BitString(const std::string& s);
     BitString(const int n);
@@ -96,7 +98,7 @@ public:
     // Getters for debugging
     bool getSign() const { return sign; }
     int64_t getExponent() const { return exponent; }
-    const std::vector<uint32_t>& getMantissa() const { return mantissa; }
+    const std::vector<limb_t>& getMantissa() const { return mantissa; }
 };
 
 #endif

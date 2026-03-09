@@ -52,23 +52,23 @@ static BitString lnMantissa(const BitString& m, int precision) {
 
 BitString BitString::ln(const BitString& n, int precision) {
     if (n.sign || n.isZero()) {
-        throw std::domain_error("ln of non-positive number");
+        throw domain_error("ln of non-positive number");
 
     }
     if (n.isOne()) return BitString();
 
-    int L = n.mantissa.size() * 32 - __builtin_clz(n.mantissa.back()); // total bits in mantissa
+    int L = bit_length(n.mantissa); // total bits in mantissa
     int64_t k = n.exponent + L - 1;
     BitString m(n.sign, n.mantissa, -(L-1));
     m.normalize();
 
     // Tighten into [1/sqrt(2), sqrt(2)] for faster atanh convergence.
     while (m > SQRT2) {
-        m = BitString::div(m, TWO, precision + 32);
+        m = BitString::div(m, TWO, precision + limb_bits);
         k += 1;
     }
     while (m < INV_SQRT2) {
-        m = BitString::mul(m, TWO, precision + 32);
+        m = BitString::mul(m, TWO, precision + limb_bits);
         k -= 1;
     }
 
@@ -76,7 +76,7 @@ BitString BitString::ln(const BitString& n, int precision) {
     BitString lnM = lnMantissa(m, precision);
 
     // Use precomputed high‑precision LN_2 constant
-    BitString kBs(std::to_string(k));
+    BitString kBs(to_string(k));
     BitString kTerm = BitString::mul(LN_2, kBs);
     BitString result = lnM + kTerm;
 

@@ -33,7 +33,7 @@ static bool tryToU64Integer(const BitString& x, uint64_t& out) {
         return false;
     }
 
-    const vector<uint32_t>& m = x.getMantissa();
+    const vector<limb_t>& m = x.getMantissa();
     const int mBits = bit_length(m);
     const int64_t totalBits = static_cast<int64_t>(mBits) + x.getExponent();
     if (totalBits > 64) {
@@ -41,8 +41,15 @@ static bool tryToU64Integer(const BitString& x, uint64_t& out) {
     }
 
     uint64_t value = 0;
-    for (int i = static_cast<int>(m.size()) - 1; i >= 0; --i) {
-        value = (value << 32) | static_cast<uint64_t>(m[i]);
+    if constexpr (limb_bits == 64) {
+        if (m.size() > 1) {
+            return false;
+        }
+        value = static_cast<uint64_t>(m[0]);
+    } else {
+        for (int i = static_cast<int>(m.size()) - 1; i >= 0; --i) {
+            value = (value << limb_bits) | static_cast<uint64_t>(m[i]);
+        }
     }
 
     if (x.getExponent() > 0) {
@@ -56,7 +63,7 @@ static bool tryToU64Integer(const BitString& x, uint64_t& out) {
 static bool isEvenInteger(const BitString& x) {
     if (x.getExponent() < 0) return false;
     if (x.getExponent() > 0) return true;
-    const vector<uint32_t>& m = x.getMantissa();
+    const vector<limb_t>& m = x.getMantissa();
     return (m[0] & 1u) == 0u;
 }
 
@@ -167,7 +174,7 @@ BitString BitString::nextP(const BitString& n) {
         while (!isPrimeU64(candidate64)) {
             candidate64 += 2;
         }
-        return BitString(std::to_string(candidate64));
+        return BitString(to_string(candidate64));
     }
 
     BitString candidate = n;

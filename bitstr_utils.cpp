@@ -10,7 +10,7 @@ BitString BitString::avg(const vector<BitString>& v) {
     for (size_t i = 1; i < v.size(); ++i) {
         sum = add(sum, v[i]);
     }
-    return div(sum, BitString((int32_t)v.size()));
+    return div(sum, BitString(static_cast<int>(v.size())));
 }
 
 int BitString::find(const vector<BitString>& v, const BitString& target) {

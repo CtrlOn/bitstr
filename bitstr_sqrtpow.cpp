@@ -27,7 +27,7 @@ BitString BitString::sqrt(const BitString& n, int precision) {
     if (n.isZero()) return BitString(0);
     if (n.sign) throw domain_error("Square root undefined for negative values");
 
-    const int totalBits = n.mantissa.size() * 32 - __builtin_clz(n.mantissa.back());
+    const int totalBits = bit_length(n.mantissa);
     int64_t initial2exp = (n.exponent + (int64_t)totalBits) / 2;
 
     // Better initial guess than 1.5: midpoint of sqrt([1,2)) narrows Newton steps.
@@ -39,7 +39,7 @@ BitString BitString::sqrt(const BitString& n, int precision) {
     const int maxIter = (precision / 8) + 12;
 
     for (int iter = 0; iter < maxIter; ++iter) {
-        BitString newX = (x + div(n, x, precision + 32)) * half;
+        BitString newX = (x + div(n, x, precision + limb_bits)) * half;
         if (abs(newX - x) < eps) {
             x = newX;
             break;

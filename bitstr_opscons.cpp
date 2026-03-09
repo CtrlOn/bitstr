@@ -7,7 +7,7 @@ BitString::BitString()
     : sign(false), mantissa(1,0), exponent(0) {}
 
 /// TODO: private this
-BitString::BitString(const bool sign, const vector<uint32_t>& mantissa, int64_t exponent)
+BitString::BitString(const bool sign, const vector<limb_t>& mantissa, int64_t exponent)
     : sign(sign), mantissa(mantissa), exponent(exponent) {}
 
 BitString::BitString(const BitString& other)

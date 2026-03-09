@@ -8,12 +8,12 @@ using namespace std;
 using namespace BigInt;
 
 // Determines if should round up based on the quotient bits
-static bool shouldRoundUp(const vector<uint32_t>& quotient, int discardBits) {
+static bool shouldRoundUp(const vector<limb_t>& quotient, int discardBits) {
     if (discardBits <= 0) return false;
     
     int roundBitPos = discardBits - 1;
-    int roundWord = roundBitPos / 32;
-    int roundShift = roundBitPos % 32;
+    int roundWord = roundBitPos / limb_bits;
+    int roundShift = roundBitPos % limb_bits;
     
     if (roundWord >= (int)quotient.size()) return false;
     
@@ -21,15 +21,19 @@ static bool shouldRoundUp(const vector<uint32_t>& quotient, int discardBits) {
     if (!roundBit) return false;
     
     // Check if there are any lower bits set (means > 1/2)
-    uint32_t lowMask = quotient[roundWord] & ((1U << roundShift) - 1);
+    limb_t lowMask = 0;
+    if (roundShift > 0) {
+        const wide_limb_t mask = (wide_limb_t(1) << roundShift) - 1;
+        lowMask = quotient[roundWord] & static_cast<limb_t>(mask);
+    }
     for (int i = 0; i < roundWord; ++i) {
         if (quotient[i] != 0) return true;
     }
     if (lowMask != 0) return true;
     
     // Tiebreaker - round to even
-    int lastKeptWord = discardBits / 32;
-    int lastKeptShift = discardBits % 32;
+    int lastKeptWord = discardBits / limb_bits;
+    int lastKeptShift = discardBits % limb_bits;
     if (lastKeptWord < (int)quotient.size()) {
         return (quotient[lastKeptWord] >> lastKeptShift) & 1;
     }
@@ -53,33 +57,33 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
     bool sign = a.sign ^ b.sign;
 
     // Work with absolute mantissas
-    vector<uint32_t> aMantissa = a.mantissa;
-    vector<uint32_t> bMantissa = b.mantissa;
+    vector<limb_t> aMantissa = a.mantissa;
+    vector<limb_t> bMantissa = b.mantissa;
 
     // Choose p so that the quotient has at least precision+1 bits.
     int p = precision + bit_length(bMantissa);
 
-    vector<uint32_t> dividend = aMantissa;
+    vector<limb_t> dividend = aMantissa;
     left_shift(dividend, p);
 
-    vector<uint32_t> quotient, remainder;
+    vector<limb_t> quotient, remainder;
     bigint_div(dividend, bMantissa, quotient, remainder);
 
     int quotientBits = bit_length(quotient);
     int discardBits = quotientBits - precision;
 
     // Extract the highest precision bits
-    vector<uint32_t> mantissa = quotient;
+    vector<limb_t> mantissa = quotient;
     right_shift(mantissa, discardBits);
 
     if (shouldRoundUp(quotient, discardBits)) {
-        uint64_t carry = 1;
+        wide_limb_t carry = 1;
         for (size_t i = 0; i < mantissa.size() && carry; ++i) {
-            uint64_t sum = uint64_t(mantissa[i]) + carry;
-            mantissa[i] = (uint32_t)sum;
-            carry = sum >> 32;
+            wide_limb_t sum = wide_limb_t(mantissa[i]) + carry;
+            mantissa[i] = static_cast<limb_t>(sum);
+            carry = sum >> limb_bits;
         }
-        if (carry) mantissa.push_back((uint32_t)carry);
+        if (carry) mantissa.push_back(static_cast<limb_t>(carry));
         
         // If rounding caused overflow, shift right and adjust exponent
         int newBits = bit_length(mantissa);
@@ -118,7 +122,7 @@ BitString BitString::div(const BitString& a, const BitString& b) {
 
 BitString BitString::rem(const BitString& a, const BitString& b) {
     if (b.isZero())
-        throw std::domain_error("Remainder of zero");
+        throw domain_error("Remainder of zero");
 
     // Remainder takes the sign of the dividend
     bool resultSign = a.sign;
@@ -130,9 +134,9 @@ BitString BitString::rem(const BitString& a, const BitString& b) {
     absB.sign = false;
 
     // Align exponents to the smaller one so both become integers
-    int64_t minExp = std::min(absA.exponent, absB.exponent);
-    std::vector<uint32_t> aMant = absA.mantissa;
-    std::vector<uint32_t> bMant = absB.mantissa;
+    int64_t minExp = min(absA.exponent, absB.exponent);
+    vector<limb_t> aMant = absA.mantissa;
+    vector<limb_t> bMant = absB.mantissa;
 
     if (absA.exponent > minExp)
         left_shift(aMant, (int)(absA.exponent - minExp));
@@ -140,7 +144,7 @@ BitString BitString::rem(const BitString& a, const BitString& b) {
         left_shift(bMant, (int)(absB.exponent - minExp));
 
     // Compute integer remainder
-    std::vector<uint32_t> quot, rem;
+    vector<limb_t> quot, rem;
     bigint_div(aMant, bMant, quot, rem);
 
     BitString result(resultSign, rem, minExp);
@@ -150,7 +154,7 @@ BitString BitString::rem(const BitString& a, const BitString& b) {
 
 BitString BitString::mod(const BitString& a, const BitString& b) {
     if (b.isZero())
-        throw std::domain_error("Modulo by zero");
+        throw domain_error("Modulo by zero");
 
     BitString r = rem(a, b);
     if (r.sign != b.sign && !r.isZero()) {

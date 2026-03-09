@@ -8,25 +8,25 @@
 using namespace std;
 using namespace BigInt;
 
-static vector<uint32_t> stringToBigInt(const string& str) {
-    vector<uint32_t> result = {0};
+static vector<limb_t> stringToBigInt(const string& str) {
+    vector<limb_t> result = {0};
     for (char c : str) {
         int digit = c - '0';
-        bigint_mul_int(result, 10);
-        bigint_add_int(result, digit);
+        bigint_mul_limb(result, 10);
+        bigint_add_limb(result, static_cast<limb_t>(digit));
     }
     return result;
 }
 
-static string bigIntToString(const vector<uint32_t>& num) {
+static string bigIntToString(const vector<limb_t>& num) {
     if (num.size() == 1 && num[0] == 0) return "0";
-    vector<uint32_t> temp = num;
+    vector<limb_t> temp = num;
     string digits;
     while (!(temp.size() == 1 && temp[0] == 0)) {
-        uint64_t remainder = 0;
+        wide_limb_t remainder = 0;
         for (int i = (int)temp.size() - 1; i >= 0; --i) {
-            uint64_t current = (remainder << 32) | temp[i];
-            temp[i] = (uint32_t)(current / 10);
+            wide_limb_t current = (remainder << limb_bits) | temp[i];
+            temp[i] = static_cast<limb_t>(current / 10);
             remainder = current % 10;
         }
         digits.push_back('0' + (char)remainder);
@@ -38,24 +38,25 @@ static string bigIntToString(const vector<uint32_t>& num) {
     return digits;
 }
 
-static bool isZeroVec(const vector<uint32_t>& v) {
+static bool isZeroVec(const vector<limb_t>& v) {
     return v.size() == 1 && v[0] == 0;
 }
 
-static vector<uint32_t> lowBits(const vector<uint32_t>& v, int bits) {
+static vector<limb_t> lowBits(const vector<limb_t>& v, int bits) {
     if (bits <= 0) {
         return {0};
     }
 
-    vector<uint32_t> out((bits + 31) / 32, 0);
+    vector<limb_t> out((bits + limb_bits - 1) / limb_bits, 0);
     const size_t copyWords = min(out.size(), v.size());
     for (size_t i = 0; i < copyWords; ++i) {
         out[i] = v[i];
     }
 
-    const int remBits = bits & 31;
+    const int remBits = bits % limb_bits;
     if (remBits != 0 && !out.empty()) {
-        out.back() &= ((1u << remBits) - 1u);
+        const wide_limb_t mask = (wide_limb_t(1) << remBits) - 1;
+        out.back() &= static_cast<limb_t>(mask);
     }
 
     while (out.size() > 1 && out.back() == 0) {
@@ -93,7 +94,7 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
     }
     if (intPart.empty()) intPart = "0";
 
-    vector<uint32_t> integerPart = stringToBigInt(intPart);
+    vector<limb_t> integerPart = stringToBigInt(intPart);
 
     if (fracPart.empty()) {
         BitString result(sign, integerPart, 0);
@@ -102,19 +103,19 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
     }
 
     int fracLen = fracPart.size();
-    vector<uint32_t> numerator = stringToBigInt(fracPart);
-    vector<uint32_t> denominator = {1};
+    vector<limb_t> numerator = stringToBigInt(fracPart);
+    vector<limb_t> denominator = {1};
     for (int j = 0; j < fracLen; ++j) {
-        bigint_mul_int(denominator, 10);
+        bigint_mul_limb(denominator, 10);
     }
 
-    vector<uint32_t> fracBits = {0};
-    vector<uint32_t> remainder = numerator;
+    vector<limb_t> fracBits = {0};
+    vector<limb_t> remainder = numerator;
     for (int bit = 0; bit < bitsPrecision; ++bit) {
         left_shift(remainder, 1);
         left_shift(fracBits, 1);
         if (bigint_cmp(remainder, denominator) >= 0) {
-            bigint_add_int(fracBits, 1);
+            bigint_add_limb(fracBits, 1);
             remainder = bigint_sub(remainder, denominator);
         }
     }
@@ -130,18 +131,18 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
         }
     }
     if (roundUp) {
-        uint64_t carry = 1;
+        wide_limb_t carry = 1;
         for (size_t i = 0; i < fracBits.size() && carry; ++i) {
-            uint64_t sum = uint64_t(fracBits[i]) + carry;
-            fracBits[i] = (uint32_t)sum;
-            carry = sum >> 32;
+            wide_limb_t sum = wide_limb_t(fracBits[i]) + carry;
+            fracBits[i] = static_cast<limb_t>(sum);
+            carry = sum >> limb_bits;
         }
-        if (carry) fracBits.push_back((uint32_t)carry);
+        if (carry) fracBits.push_back(static_cast<limb_t>(carry));
     }
 
-    vector<uint32_t> integerShifted = integerPart;
+    vector<limb_t> integerShifted = integerPart;
     left_shift(integerShifted, bitsPrecision);
-    vector<uint32_t> mantissa = bigint_add(integerShifted, fracBits);
+    vector<limb_t> mantissa = bigint_add(integerShifted, fracBits);
 
     BitString result(sign, mantissa, -bitsPrecision);
     result.normalize();
@@ -174,10 +175,10 @@ string BitString::toString(const BitString& value, int decFracDigits) {
     absValue.sign = false;
 
     int64_t exponent = absValue.exponent;
-    vector<uint32_t> mantissa = absValue.mantissa;
+    vector<limb_t> mantissa = absValue.mantissa;
 
-    vector<uint32_t> intPart;
-    vector<uint32_t> remainder;
+    vector<limb_t> intPart;
+    vector<limb_t> remainder;
     int fracBits = 0;
 
     // For normalized BitString values, denominator is always a power of two.
@@ -203,18 +204,18 @@ string BitString::toString(const BitString& value, int decFracDigits) {
     const int totalFracDigits = decFracDigits + 1;
 
     for (int i = 0; i < totalFracDigits; ++i) {
-        bigint_mul_int(remainder, 10);
+        bigint_mul_limb(remainder, 10);
 
-        vector<uint32_t> digitVec = remainder;
+        vector<limb_t> digitVec = remainder;
         right_shift(digitVec, fracBits);
-        uint32_t digit = digitVec.empty() ? 0 : digitVec[0];
+        limb_t digit = digitVec.empty() ? 0 : digitVec[0];
         if (digit > 9) {
             digit = 9;
         }
 
         fracDigits.push_back('0' + (char)digit);
 
-        vector<uint32_t> sub = {digit};
+        vector<limb_t> sub = {digit};
         left_shift(sub, fracBits);
         remainder = bigint_sub(remainder, sub);
 
@@ -242,8 +243,8 @@ string BitString::toString(const BitString& value, int decFracDigits) {
             }
         }
         if (carry) {
-            vector<uint32_t> intBig = stringToBigInt(intStr);
-            bigint_add_int(intBig, 1);
+            vector<limb_t> intBig = stringToBigInt(intStr);
+            bigint_add_limb(intBig, 1);
             intStr = bigIntToString(intBig);
             frac = string(decFracDigits, '0');
         }

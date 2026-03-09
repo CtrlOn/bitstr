@@ -18,15 +18,15 @@ void BitString::normalize() {
         return;
     }
 
-    // Remove trailing zeros in 32 chunks
+    // Remove trailing zero limbs.
     while (mantissa[0] == 0 && mantissa.size() > 1) {
         mantissa.erase(mantissa.begin());
-        exponent += 32;
+        exponent += limb_bits;
     }
 
     // Remove remaining trailing zeros
-    uint32_t low = mantissa[0];
-    int tz = __builtin_ctz(low);
+    limb_t low = mantissa[0];
+    int tz = limb_ctz(low);
     if (tz > 0) {
         right_shift(mantissa, tz);
         exponent += tz;
@@ -42,7 +42,7 @@ void BitString::normalize() {
 BitString BitString::truncate(int bits) const {
     BitString result = *this;
 
-    int totalBits = result.mantissa.size() * 32;
+    int totalBits = static_cast<int>(result.mantissa.size()) * limb_bits;
 
     if (totalBits <= bits)
         return result;
@@ -63,14 +63,14 @@ int BitString::compareMag(const BitString& a, const BitString& b) {
     if (aZero) return -1;
     if (bZero) return 1;
 
-    int aLength = a.mantissa.size() * 32 + a.exponent - __builtin_clz(a.mantissa.back());
-    int bLength = b.mantissa.size() * 32 + b.exponent - __builtin_clz(b.mantissa.back());
+    int aLength = bit_length(a.mantissa) + static_cast<int>(a.exponent);
+    int bLength = bit_length(b.mantissa) + static_cast<int>(b.exponent);
 
     if (aLength != bLength) return aLength < bLength ? -1 : 1;
 
     int expDiff = a.exponent - b.exponent;
-    vector<uint32_t> aMant = a.mantissa;
-    vector<uint32_t> bMant = b.mantissa;
+    vector<limb_t> aMant = a.mantissa;
+    vector<limb_t> bMant = b.mantissa;
     if (expDiff > 0) {
         // a has more leading zeros, shift it right
         left_shift(aMant, expDiff);
@@ -144,14 +144,14 @@ BitString BitString::mul(const BitString& a, const BitString& b, int limitBits) 
     result.mantissa.assign(a.mantissa.size() + b.mantissa.size(), 0);
 
     for (size_t i = 0; i < a.mantissa.size(); ++i) {
-        uint64_t carry = 0;
+        wide_limb_t carry = 0;
         for (size_t j = 0; j < b.mantissa.size(); ++j) {
-            uint64_t cur = result.mantissa[i + j] +
-                           (uint64_t)a.mantissa[i] * b.mantissa[j] + carry;
-            result.mantissa[i + j] = (uint32_t)cur;
-            carry = cur >> 32;
+            wide_limb_t cur = result.mantissa[i + j] +
+                              wide_limb_t(a.mantissa[i]) * b.mantissa[j] + carry;
+            result.mantissa[i + j] = static_cast<limb_t>(cur);
+            carry = cur >> limb_bits;
         }
-        result.mantissa[i + b.mantissa.size()] += carry;
+        result.mantissa[i + b.mantissa.size()] += static_cast<limb_t>(carry);
     }
 
     result.normalize();
@@ -166,7 +166,7 @@ BitString BitString::fact(const uint32_t n) {
     BitString result(1);
     int i = n;
     while (i > 1) {
-        BigInt::bigint_mul_int(result.mantissa, i--);
+        BigInt::bigint_mul_limb(result.mantissa, static_cast<limb_t>(i--));
     }
     return result;
 }
@@ -178,7 +178,7 @@ BitString BitString::abs(const BitString& x) {
 }
 
 bool BitString::isZero() const {
-    for (uint32_t w : mantissa) {
+    for (limb_t w : mantissa) {
         if (w != 0) return false;
     }
     return true;
