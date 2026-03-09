@@ -20,11 +20,11 @@
 - [x] Next prime
 - [x] Utils (Find, Sort, Avg)
 
-### Optimizarion milestones:
+### Optimization milestones:
 
 - [ ] Karatsuba multiplication
-- [ ] Portable for x64 systems (currently wastes their potential by using 32-bit limbs)
-- [ ] Employ a better enumerable type for mantissa than vector (preferable for O(1) access and O(1) push_back)
+- [x] Portable for x64 systems (currently wastes their potential by using 32-bit limbs)
+- [x] Knuth's division algorithm
 
 ### Principle:
 

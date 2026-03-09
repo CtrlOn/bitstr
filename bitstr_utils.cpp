@@ -25,6 +25,8 @@ int BitString::find(const vector<BitString>& v, const BitString& target) {
 /// NOTE: yes this is bubble sort
 void BitString::bubbleSort(vector<BitString>& v) {
     size_t n = v.size();
+    if (n < 2) return;
+
     for (size_t i = 0; i < n - 1; ++i) {
         for (size_t j = 0; j < n - i - 1; ++j) {
             if (v[j] > v[j + 1]) {

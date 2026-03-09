@@ -3,7 +3,8 @@
 #include "bitstr.h"
 
 using namespace std;
-using namespace BigInt;
+
+namespace BigInt {
 
 void left_shift(vector<limb_t>& v, unsigned int bits) {
     if (bits == 0) return;
@@ -252,10 +253,4 @@ void bigint_add_limb(vector<limb_t>& a, limb_t b) {
     if (carry) a.push_back(static_cast<limb_t>(carry));
 }
 
-void bigint_mul_int(vector<limb_t>& a, uint32_t b) {
-    bigint_mul_limb(a, static_cast<limb_t>(b));
-}
-
-void bigint_add_int(vector<limb_t>& a, uint32_t b) {
-    bigint_add_limb(a, static_cast<limb_t>(b));
-}
+} // namespace BigInt

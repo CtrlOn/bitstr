@@ -66,6 +66,10 @@ static vector<limb_t> lowBits(const vector<limb_t>& v, int bits) {
 }
 
 BitString BitString::fromString(const string& str, int bitsPrecision) {
+    if (str.empty()) {
+        throw invalid_argument("Empty number string");
+    }
+
     size_t i = 0;
     bool sign = false;
     if (str[i] == '-') {
@@ -75,6 +79,10 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
         ++i;
     }
 
+    if (i >= str.size()) {
+        throw invalid_argument("Sign without digits");
+    }
+
     string intPart, fracPart;
     bool seenDot = false;
     for (; i < str.size(); ++i) {
@@ -82,7 +90,7 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
         if (c == '.') {
             if (seenDot) throw invalid_argument("Multiple decimal points");
             seenDot = true;
-        } else if (isdigit(c)) {
+        } else if (isdigit(static_cast<unsigned char>(c))) {
             if (!seenDot) {
                 intPart.push_back(c);
             } else {

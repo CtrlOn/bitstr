@@ -68,7 +68,7 @@ int BitString::compareMag(const BitString& a, const BitString& b) {
 
     if (aLength != bLength) return aLength < bLength ? -1 : 1;
 
-    int expDiff = a.exponent - b.exponent;
+    int expDiff = static_cast<int>(a.exponent - b.exponent);
     vector<limb_t> aMant = a.mantissa;
     vector<limb_t> bMant = b.mantissa;
     if (expDiff > 0) {
@@ -78,9 +78,13 @@ int BitString::compareMag(const BitString& a, const BitString& b) {
         // b has more leading zeros, shift it right
         left_shift(bMant, -expDiff);
     }
-    for (int i = (int)aMant.size() - 1; i >= 0; --i) {
-        if (aMant[i] != bMant[i]) {
-            return aMant[i] < bMant[i] ? -1 : 1;
+    const size_t maxSize = max(aMant.size(), bMant.size());
+    if (aMant.size() < maxSize) aMant.resize(maxSize, 0);
+    if (bMant.size() < maxSize) bMant.resize(maxSize, 0);
+
+    for (int i = static_cast<int>(maxSize) - 1; i >= 0; --i) {
+        if (aMant[static_cast<size_t>(i)] != bMant[static_cast<size_t>(i)]) {
+            return aMant[static_cast<size_t>(i)] < bMant[static_cast<size_t>(i)] ? -1 : 1;
         }
     }
 

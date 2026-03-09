@@ -30,11 +30,6 @@ void bigint_mul_limb(std::vector<limb_t>& a, limb_t b);
 
 void bigint_add_limb(std::vector<limb_t>& a, limb_t b);
 
-// Compatibility wrappers while migrating call sites.
-void bigint_mul_int(std::vector<limb_t>& a, std::uint32_t b);
-
-void bigint_add_int(std::vector<limb_t>& a, std::uint32_t b);
-
 std::vector<limb_t> bigint_add(const std::vector<limb_t>& a, const std::vector<limb_t>& b);
 
 std::vector<limb_t> bigint_sub(const std::vector<limb_t>& a, const std::vector<limb_t>& b);
