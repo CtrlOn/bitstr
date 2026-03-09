@@ -108,14 +108,11 @@ struct TestRunner {
 };
 
 void runFormattingRuleTests(TestRunner& tr) {
-    const std::string z98(98, '0');
-    const std::string z96(96, '0');
-
     tr.checkEqRaw("fmt integer 1", "1.0", str(bs("1")));
     tr.checkEqRaw("fmt integer -42", "-42.0", str(bs("-42")));
-    tr.checkEqRaw("fmt 0.5 width", "0.5" + z98, str(bs("0.5")));
-    tr.checkEqRaw("fmt 0.125 width", "0.125" + z96, str(bs("0.125")));
-    tr.checkEqRaw("fmt -7.25 width", "-7.25" + std::string(97, '0'), str(bs("-7.25")));
+    tr.checkEqRaw("fmt 0.5 trimmed", "0.5", str(bs("0.5")));
+    tr.checkEqRaw("fmt 0.125 trimmed", "0.125", str(bs("0.125")));
+    tr.checkEqRaw("fmt -7.25 trimmed", "-7.25", str(bs("-7.25")));
 
     const std::string oneSixth = "0.166666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667";
     const std::string twoThirds = "0.666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666666667";
@@ -134,8 +131,12 @@ void runFormattingRuleTests(TestRunner& tr) {
         tr.check("fmt no scientific " + input, out.find('e') == std::string::npos && out.find('E') == std::string::npos);
         const std::size_t dot = out.find('.');
         tr.check("fmt has dot " + input, dot != std::string::npos);
-        if (dot != std::string::npos && !endsWith(out, ".0")) {
-            tr.check("fmt 99 fractional digits " + input, out.size() - dot - 1 == 99);
+        if (dot != std::string::npos) {
+            const std::size_t fracLen = out.size() - dot - 1;
+            tr.check("fmt <=99 fractional digits " + input, fracLen <= 99);
+            if (fracLen > 0 && !endsWith(out, ".0")) {
+                tr.check("fmt no trailing zero " + input, out.back() != '0');
+            }
         }
     }
 }
