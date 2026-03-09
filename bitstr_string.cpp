@@ -249,16 +249,12 @@ string BitString::toString(const BitString& value, int decFracDigits) {
         }
     }
 
-    result += intStr;
-    bool isZeroFrac = true;
-    for (char c : frac) {
-        if (c != '0') {
-            isZeroFrac = false;
-            break;
-        }
+    while (!frac.empty() && frac.back() == '0') {
+        frac.pop_back();
     }
 
-    if (isZeroFrac) {
+    result += intStr;
+    if (frac.empty()) {
         result += ".0";
         if (intStr == "0") return "0.0"; // Fix '-0.0'
     } else {
