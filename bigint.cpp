@@ -4,54 +4,40 @@
 
 namespace BigInt {
 
-static void bigint_sub_in_place(std::vector<uint32_t>& a, const std::vector<uint32_t>& b) {
-    uint64_t borrow = 0;
-    for (size_t i = 0; i < a.size(); ++i) {
-        const uint64_t av = a[i];
-        const uint64_t bv = (i < b.size()) ? b[i] : 0;
-        const uint64_t sub = av - bv - borrow;
-        borrow = (av < (bv + borrow)) ? 1 : 0;
-        a[i] = (uint32_t)sub;
-    }
-    while (a.size() > 1 && a.back() == 0) {
-        a.pop_back();
-    }
-}
-
 void left_shift(std::vector<uint32_t>& v, unsigned int bits) {
     if (bits == 0) return;
-    int int_shift = bits / 32;
-    int bit_shift = bits % 32;
+    int intShift = bits / 32;
+    int bitShift = bits % 32;
 
-    if (bit_shift) {
+    if (bitShift) {
         uint32_t carry = 0;
         for (size_t i = 0; i < v.size(); ++i){
-            uint64_t cursor = ((uint64_t)v[i] << bit_shift) | carry;
+            uint64_t cursor = ((uint64_t)v[i] << bitShift) | carry;
             v[i] = (uint32_t)cursor;
             carry = cursor >> 32;
         }
         if (carry) v.push_back(carry);
     }
-    if (int_shift) v.insert(v.begin(), int_shift, 0);
+    if (intShift) v.insert(v.begin(), intShift, 0);
 }
 
 void right_shift(std::vector<uint32_t>& v, unsigned int bits) {
     if (bits == 0) return;
-    int int_shift = bits / 32;
-    int bit_shift = bits % 32;
+    int intShift = bits / 32;
+    int bitShift = bits % 32;
 
-    if (int_shift >= (int)v.size()) {
+    if (intShift >= (int)v.size()) {
         v.assign(1, 0);
         return;
     }
 
-    v.erase(v.begin(), v.begin() + int_shift);
+    v.erase(v.begin(), v.begin() + intShift);
 
-    if (bit_shift) {
+    if (bitShift) {
         uint32_t carry = 0;
         for (int i = v.size() - 1; i >= 0; --i){
-            uint32_t newCarry = v[i] << (32 - bit_shift);
-            v[i] = (v[i] >> bit_shift) | carry;
+            uint32_t newCarry = v[i] << (32 - bitShift);
+            v[i] = (v[i] >> bitShift) | carry;
             carry = newCarry;
         }
     }
@@ -60,11 +46,11 @@ void right_shift(std::vector<uint32_t>& v, unsigned int bits) {
 int bit_length(const std::vector<uint32_t>& v) {
     if (v.empty()) return 0;
     // Find the highest non-zero word (skip trailing zeros)
-    int top = v.size() - 1;
-    while (top >= 0 && v[top] == 0) --top;
-    if (top < 0) return 0;
-    int msb = 31 - __builtin_clz(v[top]);
-    return top * 32 + msb + 1;
+    int topIndex = static_cast<int>(v.size()) - 1;
+    while (topIndex >= 0 && v[topIndex] == 0) --topIndex;
+    if (topIndex < 0) return 0;
+    int msbIndex = 31 - __builtin_clz(v[topIndex]);
+    return topIndex * 32 + msbIndex + 1;
 }
 
 int bigint_cmp(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b) {
@@ -76,17 +62,17 @@ int bigint_cmp(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b) {
 }
 
 std::vector<uint32_t> bigint_sub(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b) {
-    std::vector<uint32_t> res = a;
+    std::vector<uint32_t> result = a;
     uint64_t borrow = 0;
-    for (size_t i = 0; i < res.size(); ++i) {
-        uint64_t av = res[i];
-        uint64_t bv = i < b.size() ? b[i] : 0;
-        uint64_t sub = av - bv - borrow;
-        borrow = (av < bv + borrow) ? 1 : 0;
-        res[i] = (uint32_t)sub;
+    for (size_t i = 0; i < result.size(); ++i) {
+        uint64_t aWord = result[i];
+        uint64_t bWord = i < b.size() ? b[i] : 0;
+        uint64_t diff = aWord - bWord - borrow;
+        borrow = (aWord < bWord + borrow) ? 1 : 0;
+        result[i] = (uint32_t)diff;
     }
-    while (res.size() > 1 && res.back() == 0) res.pop_back();
-    return res;
+    while (result.size() > 1 && result.back() == 0) result.pop_back();
+    return result;
 }
 
 std::vector<uint32_t> bigint_mul(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b) {
@@ -107,11 +93,11 @@ std::vector<uint32_t> bigint_mul(const std::vector<uint32_t>& a, const std::vect
 }
 
 void bigint_add_pow2(std::vector<uint32_t>& v, int bit) {
-    int word = bit / 32;
-    int subbit = bit % 32;
-    uint64_t carry = uint64_t(1) << subbit;
-    if (word >= (int)v.size()) v.resize(word + 1, 0);
-    for (int i = word; i < (int)v.size() && carry; ++i) {
+    int wordIndex = bit / 32;
+    int bitIndex = bit % 32;
+    uint64_t carry = uint64_t(1) << bitIndex;
+    if (wordIndex >= (int)v.size()) v.resize(wordIndex + 1, 0);
+    for (int i = wordIndex; i < (int)v.size() && carry; ++i) {
         uint64_t sum = uint64_t(v[i]) + carry;
         v[i] = (uint32_t)sum;
         carry = sum >> 32;
@@ -119,38 +105,114 @@ void bigint_add_pow2(std::vector<uint32_t>& v, int bit) {
     if (carry) v.push_back((uint32_t)carry);
 }
 
-void bigint_div(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b, std::vector<uint32_t>& quot, std::vector<uint32_t>& rem) {
-    if (bigint_cmp(a, b) < 0) {
-        quot = {0};
-        rem = a;
+void bigint_div(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b, std::vector<uint32_t>& quotient, std::vector<uint32_t>& remainder) {
+    std::vector<uint32_t> dividend = a;
+    std::vector<uint32_t> divisor = b;
+    while (dividend.size() > 1 && dividend.back() == 0) dividend.pop_back();
+    while (divisor.size() > 1 && divisor.back() == 0) divisor.pop_back();
+
+    if (divisor.size() == 1 && divisor[0] == 0) {
+        throw std::domain_error("bigint_div by zero");
+    }
+
+    if (bigint_cmp(dividend, divisor) < 0) {
+        quotient = {0};
+        remainder = dividend;
         return;
     }
-    int lenA = bit_length(a);
-    int lenB = bit_length(b);
-    int qbits = lenA - lenB; // max possible bit index of quotient
 
-    quot.assign((qbits / 32) + 1, 0);
-    rem = a;
-
-    std::vector<uint32_t> bShift = b;
-    left_shift(bShift, qbits);
-
-    for (int i = qbits; i >= 0; --i) {
-        if (bigint_cmp(rem, bShift) >= 0) {
-            bigint_sub_in_place(rem, bShift);
-            quot[i / 32] |= (1u << (i % 32));
+    // Fast path for one-limb divisor.
+    if (divisor.size() == 1) {
+        const uint64_t divisorWord = divisor[0];
+        quotient.assign(dividend.size(), 0);
+        uint64_t remainderWord = 0;
+        for (int i = static_cast<int>(dividend.size()) - 1; i >= 0; --i) {
+            uint64_t current = (remainderWord << 32) | dividend[i];
+            quotient[i] = static_cast<uint32_t>(current / divisorWord);
+            remainderWord = current % divisorWord;
         }
-
-        if (i > 0) {
-            right_shift(bShift, 1);
-            while (bShift.size() > 1 && bShift.back() == 0) {
-                bShift.pop_back();
-            }
-        }
+        while (quotient.size() > 1 && quotient.back() == 0) quotient.pop_back();
+        remainder = {static_cast<uint32_t>(remainderWord)};
+        return;
     }
 
-    while (quot.size() > 1 && quot.back() == 0) quot.pop_back();
-    while (rem.size() > 1 && rem.back() == 0) rem.pop_back();
+    // Knuth-style normalized long division (base 2^32).
+    const uint64_t base = (1ULL << 32);
+    const int divisorLen = static_cast<int>(divisor.size());
+    const int quotientLen = static_cast<int>(dividend.size()) - divisorLen;
+
+    const int normalizeShift = __builtin_clz(divisor.back());
+    std::vector<uint32_t> normalizedDivisor = divisor;
+    std::vector<uint32_t> normalizedDividend = dividend;
+    if (normalizeShift) {
+        left_shift(normalizedDivisor, normalizeShift);
+        left_shift(normalizedDividend, normalizeShift);
+    }
+    normalizedDividend.push_back(0);
+
+    quotient.assign(quotientLen + 1, 0);
+
+    for (int j = quotientLen; j >= 0; --j) {
+        uint64_t u2 = normalizedDividend[j + divisorLen];
+        uint64_t u1 = normalizedDividend[j + divisorLen - 1];
+        uint64_t u0 = (divisorLen > 1) ? normalizedDividend[j + divisorLen - 2] : 0;
+
+        uint64_t numerator = (u2 << 32) | u1;
+        uint64_t quotientHat = numerator / normalizedDivisor[divisorLen - 1];
+        uint64_t remainderHat = numerator % normalizedDivisor[divisorLen - 1];
+
+        if (quotientHat >= base) {
+            quotientHat = base - 1;
+            remainderHat += normalizedDivisor[divisorLen - 1];
+        }
+
+        if (divisorLen > 1) {
+            while (quotientHat * normalizedDivisor[divisorLen - 2] > (remainderHat << 32) + u0) {
+                --quotientHat;
+                remainderHat += normalizedDivisor[divisorLen - 1];
+                if (remainderHat >= base) break;
+            }
+        }
+
+        uint64_t borrow = 0;
+        uint64_t carry = 0;
+        for (int i = 0; i < divisorLen; ++i) {
+            uint64_t p = quotientHat * normalizedDivisor[i] + carry;
+            carry = p >> 32;
+            uint64_t productLow = static_cast<uint32_t>(p);
+
+            uint64_t current = normalizedDividend[j + i];
+            uint64_t diff = current - productLow - borrow;
+            normalizedDividend[j + i] = static_cast<uint32_t>(diff);
+            borrow = (current < productLow + borrow) ? 1 : 0;
+        }
+
+        uint64_t currentTop = normalizedDividend[j + divisorLen];
+        uint64_t diffTop = currentTop - carry - borrow;
+        normalizedDividend[j + divisorLen] = static_cast<uint32_t>(diffTop);
+        bool underflow = currentTop < carry + borrow;
+
+        if (underflow) {
+            --quotientHat;
+            uint64_t c = 0;
+            for (int i = 0; i < divisorLen; ++i) {
+                uint64_t sum = static_cast<uint64_t>(normalizedDividend[j + i]) + normalizedDivisor[i] + c;
+                normalizedDividend[j + i] = static_cast<uint32_t>(sum);
+                c = sum >> 32;
+            }
+            normalizedDividend[j + divisorLen] = static_cast<uint32_t>(static_cast<uint64_t>(normalizedDividend[j + divisorLen]) + c);
+        }
+
+        quotient[j] = static_cast<uint32_t>(quotientHat);
+    }
+
+    remainder.assign(normalizedDividend.begin(), normalizedDividend.begin() + divisorLen);
+    if (normalizeShift) {
+        right_shift(remainder, normalizeShift);
+    }
+
+    while (quotient.size() > 1 && quotient.back() == 0) quotient.pop_back();
+    while (remainder.size() > 1 && remainder.back() == 0) remainder.pop_back();
 }
 
 std::vector<uint32_t> bigint_add(const std::vector<uint32_t>& a, const std::vector<uint32_t>& b) {

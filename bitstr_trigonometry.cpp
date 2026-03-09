@@ -1,6 +1,5 @@
 // Trigonometry calculations
 #include "bitstr.h"
-#include <utility>
 
 #define SIN_PRECISION 448 // default target precision bits for sin/cos
 

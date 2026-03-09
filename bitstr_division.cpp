@@ -102,7 +102,7 @@ BitString BitString::div(const BitString& a, const BitString& b, int precision) 
     return result;
 }
 
-/// Smart auto precision TODO: idk if its smart actually anymore
+/// Smart auto precision
 BitString BitString::div(const BitString& a, const BitString& b) {
     // Magnitude-aware default: tiny quotients need extra bits to keep decimal output stable.
     const int aMagBits = bit_length(a.mantissa) + (int)a.exponent;

@@ -25,7 +25,7 @@ static const BitString INV_SQRT2 = BitString::fromString(
 ///FIXME: beyond this point downwards
 
 
-static BitString arctanh_series(const BitString& t, int precision) {
+static BitString arctanhSeries(const BitString& t, int precision) {
 
     BitString t2 = BitString::mul(t, t, precision * 1.5f);
     BitString term = t;
@@ -36,17 +36,17 @@ static BitString arctanh_series(const BitString& t, int precision) {
     while (BitString::abs(term) > epsilonAbs) {
         term = BitString::mul(term, t2, precision * 1.5f);
         n += 2;
-        BitString term_div_n = BitString::div(term, BitString(n), precision * 1.5f);
-        sum = sum + term_div_n;
+        BitString termDivN = BitString::div(term, BitString(n), precision * 1.5f);
+        sum = sum + termDivN;
     }
     return sum;
 }
 
 /// Compute ln(m) for m in [1,2)
-static BitString ln_mantissa(const BitString& m, int precision) {
+static BitString lnMantissa(const BitString& m, int precision) {
     BitString one("1");
     BitString t = BitString::div(m - one, m + one, precision * 1.5f); // (m-1)/(m+1)
-    BitString sum = arctanh_series(t, precision);
+    BitString sum = arctanhSeries(t, precision);
     return BitString::mul(BitString(2), sum, precision * 1.5f);
 }
 
@@ -73,12 +73,12 @@ BitString BitString::ln(const BitString& n, int precision) {
     }
 
     // Compute ln(m)
-    BitString ln_m = ln_mantissa(m, precision);
+    BitString lnM = lnMantissa(m, precision);
 
     // Use precomputed high‑precision LN_2 constant
-    BitString k_bs(std::to_string(k));
-    BitString k_term = BitString::mul(LN_2, k_bs);
-    BitString result = ln_m + k_term;
+    BitString kBs(std::to_string(k));
+    BitString kTerm = BitString::mul(LN_2, kBs);
+    BitString result = lnM + kTerm;
 
     result.normalize();
     return result.truncate(precision);

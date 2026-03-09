@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <sstream>
+#include <utility>
 
 class BitString {
 private:
