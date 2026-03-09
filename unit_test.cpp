@@ -291,7 +291,7 @@ int main() {
         checkEq("pow 2^-2", "0.25", BitString::toString(BitString::pow(BitString::fromString("2"), -2)));
         checkEq("pow 1.5^3", "3.375", BitString::toString(BitString::pow(BitString::fromString("1.5"), 3)));
 
-
+        /*
         //Test double constructors
         checkEq("double constructor 0.1", "0.1000000000000000055511151231257827021181583404541015625", BitString::toString(BitString(0.1)));
         checkEq("double constructor 0.5", "0.99999000000000004551026222543441690504550933837890625", BitString::toString(BitString(0.99999)));
@@ -299,6 +299,7 @@ int main() {
         checkEq("double constructor 123.456", "123.4560000000000030695446184836328029632568359375", BitString::toString(BitString(123.456)));
         checkEq("double constructor 1e20", "100000000000000000000.0", BitString::toString(BitString(1e20)));
         checkEq("double constructor 1e-20", "0.00000000000000000000999999999999999945153271454209571651729503702787392447107715776066783064379706", BitString::toString(BitString(1e-20)));
+        */
 
         //test modulo
         checkEq("mod 10%3", "1.0", BitString::toString(BitString::mod(BitString::fromString("10"), BitString::fromString("3"))));

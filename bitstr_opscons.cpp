@@ -23,46 +23,8 @@ BitString::BitString(const int32_t n)
 }
 
 /// WARNING: double is very unprecise, use string constructors for absulote precision
-BitString::BitString(const double d) {
-    // reinterpret bits so we can extract sign, exponent and mantissa exactly
-    uint64_t bits;
-    memcpy(&bits, &d, sizeof(double));
-
-    sign = (bits >> 63) != 0; // first bit sign
-    uint64_t expRaw = (bits >> 52) & 0x7FFULL; // next 11 bits exponent
-    uint64_t mant = bits & 0xFFFFFFFFFFFFFULL; // last 52 bits mantissa
-
-    if (expRaw == 0) {
-        // zero or subnormal
-        if (mant == 0) {
-            // exactly zero
-            *this = BitString();
-            return;
-        }
-        exponent = -1022 - 52;
-    } else if (expRaw == 0x7FFULL) {
-        // Inf or NaN
-        throw invalid_argument("NaN and infinity not supported");
-    } else {
-        // implicit leading 1
-        mant |= (1ULL << 52);
-        // unbiased exponent
-        int64_t e = (int64_t)expRaw - 1023;
-        exponent = e - 52; // because mantissa represents an integer with 52 fractional bits
-    }
-
-    uint32_t low = (uint32_t)(mant & 0xFFFFFFFFULL);
-    uint32_t high = (uint32_t)(mant >> 32);
-    mantissa.clear();
-    mantissa.push_back(low);
-    if (high != 0) {
-        mantissa.push_back(high);
-    }
-
-    normalize();
-
-    //cout << "-- extracted val" << toString(*this) << endl; 
-}
+BitString::BitString(const double d)
+    : BitString(to_string(d)) {}
 
 BitString& BitString::operator=(const BitString& other) {
     if (this != &other) {

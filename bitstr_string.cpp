@@ -124,8 +124,8 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
 
 BitString BitString::fromString(const string& s) {
     int fractionals = 0;
-    int point = s.find('.');
-    if (point != std::string::npos) {
+    size_t point = s.find('.');
+    if (point != ::string::npos) {
         fractionals = (int)(s.size() - s.find('.') - 1);
     }
     float precision = s.find('.') != string::npos ? BIN_FRAC_IN * (fractionals * 1.414f) : 1;
@@ -162,7 +162,7 @@ string BitString::toString(const BitString& value, int decFracDigits) {
     }
 
     string fracDigits;
-    for (int i = 0; i < decFracDigits + 1; ++i) {
+    for (size_t i = 0; i < (size_t)decFracDigits + 1; ++i) {
         bigint_mul_int(remainder, 10);
         vector<uint32_t> digitVec, newRem;
         bigint_div(remainder, denominator, digitVec, newRem);
@@ -173,7 +173,7 @@ string BitString::toString(const BitString& value, int decFracDigits) {
             break;
         }
     }
-    while (fracDigits.size() < decFracDigits + 1) {
+    while (fracDigits.size() < (size_t)decFracDigits + 1) {
         fracDigits.push_back('0');
     }
 
