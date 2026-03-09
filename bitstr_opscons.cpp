@@ -17,10 +17,8 @@ BitString::BitString(const string& str) {
     *this = fromString(str);
 }
 
-BitString::BitString(const int32_t n)
-    : sign(n < 0), mantissa(1, (uint32_t)(sign ? -n : n)), exponent(0) {
-    normalize();
-}
+BitString::BitString(const int n)
+    : BitString(to_string(n)) {}
 
 /// WARNING: double is very unprecise, use string constructors for absulote precision
 BitString::BitString(const double d)

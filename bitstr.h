@@ -23,7 +23,7 @@ public:
     BitString(const bool sign, const std::vector<uint32_t>& mantissa, int64_t exponent);//TODO: hide
     BitString(const BitString& other);
     BitString(const std::string& s);
-    BitString(const int32_t n);
+    BitString(const int n);
     BitString(const double d);
 
     const static BitString PI;
