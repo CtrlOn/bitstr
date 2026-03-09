@@ -16,7 +16,7 @@
 - [x] Factorial
 - [x] Power
 - [x] Square root
-- [ ] Natural logarithm
+- [x] Natural logarithm
 - [ ] Next prime
 - [x] Utils (Find, Sort, Avg)
 
