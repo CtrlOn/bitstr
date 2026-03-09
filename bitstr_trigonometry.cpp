@@ -48,42 +48,42 @@ BitString BitString::sin(const BitString& n) {
 
     // keep halving until its "small"
     int k = 0;
-    // adjustable (literally depends on other operator speeds), 
+    // adjustable (literally should depend on other operator speeds), 
     //  make it smaller to use more multiplications,
     //  larger to use more taylors (divisions), best with benchmarking
-    const BitString SMALL_ANGLE(0.0000001);
+    const BitString SMALL_ANGLE("0.0000001");
     while (x > SMALL_ANGLE) {
-        x = x * BitString(0.5);
+        x.exponent--;
         k++;
     }
 
     // compute sin and cos (with tiny angle)
     BitString sin_x = x;
-    BitString cos_x = BitString(1);
+    BitString cos_x = BitString("1");
     BitString term_sin = x;
-    BitString term_cos = BitString(1);
+    BitString term_cos = BitString("1");
     BitString x2 = mul(x, x, SIN_PRECISION * 1.5f);
     const int MAX_TERMS = 20;
     const BitString EPS = BitString(0, {1}, -SIN_PRECISION);
 
     // Sine series
     for (int i = 1; i < MAX_TERMS; ++i) {
-        term_sin = div(-term_sin * x2, BitString((double)((2*i)*(2*i+1))), SIN_PRECISION);
+        term_sin = div(-term_sin * x2, BitString((int32_t)((2*i)*(2*i+1))), SIN_PRECISION);
         sin_x = sin_x + term_sin;
         if (abs(term_sin) < abs(sin_x) * EPS) break;
     }
 
     // Cosine series
     for (int i = 1; i < MAX_TERMS; ++i) {
-        term_cos = div(-term_cos * x2, BitString((double)((2*i-1)*(2*i))), SIN_PRECISION);
+        term_cos = div(-term_cos * x2, BitString((int32_t)((2*i-1)*(2*i))), SIN_PRECISION);
         cos_x = cos_x + term_cos;
         if (abs(term_cos) < abs(cos_x) * EPS) break;
     }
 
     // Now stitch it all up with "sin2x = 2sinxcosx"
     for (int i = 0; i < k; ++i) {
-        BitString new_sin = BitString(2) * mul(sin_x, cos_x, SIN_PRECISION * 1.5f); // cheaper mults
-        BitString new_cos = BitString(2) * mul(cos_x, cos_x, SIN_PRECISION * 1.5f) - BitString(1);
+        BitString new_sin = BitString("2") * mul(sin_x, cos_x, SIN_PRECISION * 1.5f); // cheaper mults
+        BitString new_cos = BitString("2") * mul(cos_x, cos_x, SIN_PRECISION * 1.5f) - BitString("1");
         sin_x = new_sin;
         cos_x = new_cos;
     }

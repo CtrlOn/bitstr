@@ -39,7 +39,7 @@ static BitString arctanh_series(const BitString& t, int precision) {
     BitString term = t;
     BitString sum = term;
     int n = 1;
-    BitString epsilon(0, {1}, -precision * 1.5f);
+    BitString epsilon(0, {1}, -precision);
 
     while (BitString::abs(term) > BitString::abs(sum) * epsilon) {
         term = BitString::mul(term, t2, precision * 1.5f);
@@ -52,7 +52,7 @@ static BitString arctanh_series(const BitString& t, int precision) {
 
 /// Compute ln(m) for m in [1,2)
 static BitString ln_mantissa(const BitString& m, int precision) {
-    BitString one(1);
+    BitString one("1");
     BitString t = BitString::div(m - one, m + one, precision * 1.5f); // (m-1)/(m+1)
     BitString sum = arctanh_series(t, precision);
     return BitString::mul(BitString(2), sum, precision * 1.5f);
@@ -61,8 +61,9 @@ static BitString ln_mantissa(const BitString& m, int precision) {
 BitString BitString::ln(const BitString& n, int precision) {
     if (n.sign || n.isZero()) {
         throw std::domain_error("ln of non-positive number");
+
     }
-    if (n.isOne()) return BitString(0);
+    if (n.isOne()) return BitString();
 
     int L = n.mantissa.size() * 32 - __builtin_clz(n.mantissa.back()); // total bits in mantissa
     int64_t k = n.exponent + L - 1;
@@ -70,8 +71,8 @@ BitString BitString::ln(const BitString& n, int precision) {
     m.normalize();
 
     // Clamp m to [1,2) – correct any off-by-one due to rounding
-    const BitString one(1);
-    const BitString two(2);
+    const BitString one("1");
+    const BitString two("2");
     while (m >= two) {
         m = BitString::div(m, two, precision * 2); // m /= 2
         k += 1;
@@ -94,5 +95,5 @@ BitString BitString::ln(const BitString& n, int precision) {
 }
 
 BitString BitString::ln(const BitString& n) {
-    return ln(n, LN_PRECISION*2);
+    return ln(n, LN_PRECISION);
 }

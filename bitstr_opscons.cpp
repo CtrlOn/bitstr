@@ -1,6 +1,5 @@
 // Constructors and Operators (Not implementations)
 #include "bitstr.h"
-#include <cstring>
 
 using namespace std;
 
@@ -23,6 +22,7 @@ BitString::BitString(const int32_t n)
     normalize();
 }
 
+/// WARNING: double is very unprecise, use string constructors for absulote precision
 BitString::BitString(const double d) {
     // reinterpret bits so we can extract sign, exponent and mantissa exactly
     uint64_t bits;
@@ -60,6 +60,8 @@ BitString::BitString(const double d) {
     }
 
     normalize();
+
+    //cout << "-- extracted val" << toString(*this) << endl; 
 }
 
 BitString& BitString::operator=(const BitString& other) {
