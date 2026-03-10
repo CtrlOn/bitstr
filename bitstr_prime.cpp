@@ -28,7 +28,7 @@ static bool isPrimeU64(uint64_t n) {
     return true;
 }
 
-static bool tryToU64Integer(const BitString& x, uint64_t& out) {
+static bool tryToLimbInteger(const BitString& x, limb_t& out) {
     if (x.getSign() || x.getExponent() < 0) {
         return false;
     }
@@ -36,21 +36,11 @@ static bool tryToU64Integer(const BitString& x, uint64_t& out) {
     const vector<limb_t>& m = x.getMantissa();
     const int mBits = bit_length(m);
     const int64_t totalBits = static_cast<int64_t>(mBits) + x.getExponent();
-    if (totalBits > 64) {
+    if (totalBits > limb_bits || m.size() != 1) {
         return false;
     }
 
-    uint64_t value = 0;
-    if (limb_bits == 64) {
-        if (m.size() > 1) {
-            return false;
-        }
-        value = static_cast<uint64_t>(m[0]);
-    } else {
-        for (int i = static_cast<int>(m.size()) - 1; i >= 0; --i) {
-            value = (value << limb_bits) | static_cast<uint64_t>(m[i]);
-        }
-    }
+    limb_t value = m[0];
 
     if (x.getExponent() > 0) {
         value <<= x.getExponent();
@@ -125,9 +115,9 @@ bool BitString::isPrime() const {
     // Only integers can be prime.
     if (n.exponent < 0) return false;
 
-    uint64_t n64 = 0;
-    if (tryToU64Integer(n, n64)) {
-        return isPrimeU64(n64);
+    limb_t nLimb = 0;
+    if (tryToLimbInteger(n, nLimb)) {
+        return isPrimeU64(static_cast<uint64_t>(nLimb));
     }
 
     // In normalized form, exponent > 0 implies an even integer (factor 2^exponent).
@@ -165,9 +155,9 @@ bool BitString::isPrime() const {
 BitString BitString::nextP(const BitString& n) {
     if (n < 2) return BitString(2);
 
-    uint64_t n64 = 0;
-    if (tryToU64Integer(n, n64) && n64 < (UINT64_MAX - 2)) {
-        uint64_t candidate64 = n64 + 1;
+    limb_t nLimb = 0;
+    if (tryToLimbInteger(n, nLimb) && static_cast<uint64_t>(nLimb) < (UINT64_MAX - 2)) {
+        uint64_t candidate64 = static_cast<uint64_t>(nLimb) + 1;
         if ((candidate64 & 1ULL) == 0ULL) {
             ++candidate64;
         }
