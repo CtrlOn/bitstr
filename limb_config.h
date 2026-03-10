@@ -7,7 +7,7 @@
 // Keeping default 0 preserves existing behavior while exposing a single
 // place to control limb width and related constants.
 #ifndef BITSTR_USE_NATIVE_LIMB
-#define BITSTR_USE_NATIVE_LIMB 1
+#define BITSTR_USE_NATIVE_LIMB 0
 #endif
 
 namespace limb_config {
@@ -38,14 +38,14 @@ using wide_limb_t =
 constexpr int word_bytes = limb_bits / 8;
 
 inline int limb_clz(limb_t x) {
-    if constexpr (sizeof(limb_t) == 8) {
+    if (sizeof(limb_t) == 8) {
         return __builtin_clzll(static_cast<unsigned long long>(x));
     }
     return __builtin_clz(static_cast<unsigned int>(x));
 }
 
 inline int limb_ctz(limb_t x) {
-    if constexpr (sizeof(limb_t) == 8) {
+    if (sizeof(limb_t) == 8) {
         return __builtin_ctzll(static_cast<unsigned long long>(x));
     }
     return __builtin_ctz(static_cast<unsigned int>(x));

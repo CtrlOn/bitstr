@@ -41,7 +41,7 @@ static bool tryToU64Integer(const BitString& x, uint64_t& out) {
     }
 
     uint64_t value = 0;
-    if constexpr (limb_bits == 64) {
+    if (limb_bits == 64) {
         if (m.size() > 1) {
             return false;
         }
