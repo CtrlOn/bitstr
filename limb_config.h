@@ -7,7 +7,7 @@
 // Keeping default 0 preserves existing behavior while exposing a single
 // place to control limb width and related constants.
 #ifndef BITSTR_USE_NATIVE_LIMB
-#define BITSTR_USE_NATIVE_LIMB 0
+#define BITSTR_USE_NATIVE_LIMB 1
 #endif
 
 namespace limb_config {
