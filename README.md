@@ -53,13 +53,13 @@
 
 **Uncertainty propagation applies here as well**
 
-| Operation        | Result       | How Uncertainty Combines                                         |
+| Operation        | Result       | How Uncertainty Combines                                        |
 | ---------------- | ------------ | ---------------------------------------------------------------- |
-| Addition         | (z = x + y)  | ( \Delta z = \Delta x + \Delta y )                               |
-| Subtraction      | (z = x - y)  | ( \Delta z = \Delta x + \Delta y )                               |
-| Multiplication   | (z = xy)     | ( \frac{\Delta z}{z} = \frac{\Delta x}{x} + \frac{\Delta y}{y} ) |
-| Division         | (z = x/y)    | ( \frac{\Delta z}{z} = \frac{\Delta x}{x} + \frac{\Delta y}{y} ) |
-| Power            | (z = x^n)    | ( \frac{\Delta z}{z} = n \cdot \frac{\Delta x}{x} )              |
-| Constant × value | (z = ax)     | ( \Delta z = a \cdot \Delta x )                                  |
-| Logarithm        | (z = \ln(x)) | ( \Delta z = \frac{\Delta x}{x} )                                |
-| Exponential      | (z = e^x)    | ( \frac{\Delta z}{z} = \Delta x )                                |
+| Addition         | z = x + y    | Δz = Δx + Δy                                                     |
+| Subtraction      | z = x - y    | Δz = Δx + Δy                                                     |
+| Multiplication   | z = x*y      | Δz/z = Δx/x + Δy/y                                               |
+| Division         | z = x/y      | Δz/z = Δx/x + Δy/y                                               |
+| Power            | z = x^n      | Δz/z = n * (Δx/x)                                                |
+| Constant × value | z = a*x      | Δz = a * Δx                                                      |
+| Logarithm        | z = ln(x)    | Δz = Δx/x                                                        |
+| Exponential      | z = e^x      | Δz/z = Δx                                                        |
