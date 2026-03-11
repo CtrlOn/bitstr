@@ -2,7 +2,7 @@
 
 ## This library provides a BitString class for representing and manipulating arbitrary-precision binary floating-point numbers.
 
-### Feature milestones:
+### Feature milestones
 
 - [x] Basic structure and constructors
 - [x] String conversion (was hell of a midnight)
@@ -20,20 +20,22 @@
 - [x] Next prime
 - [x] Utils (Find, Sort, Avg)
 
-### Optimization milestones:
+### Optimization milestones
 
 - [ ] Karatsuba multiplication
 - [x] Portable for x64 systems (currently wastes their potential by using 32-bit limbs)
 - [x] Knuth's division algorithm
 
-### Principle:
+### Principle
 
 - Works pretty much the same as double or float, but has:
   - Sign: 1 bit (bool)
   - Exponent: 64 bits (uint64_t)
   - Mantissa infinite bits (vector\<uint32_t\>)
 
-### Precision:
+### Precision
+
+#### Config
 
 - Configurable via macro definitions:
   - `#define DEC_FRAC_OUT 100` (number of decimal digits in toString, alternatively, pass it as second argument)
@@ -46,3 +48,18 @@
 - Hardcoded constants:
   - trigonometry: `PI`, `TWO_PI`, `HALF_PI`
   - logarithm: `LN_2`, `SQRT_2`, `INV_SQRT_2`
+
+#### Uncertainty
+
+**Uncertainty propagation applies here as well**
+
+| Operation        | Result       | How Uncertainty Combines                                         |
+| ---------------- | ------------ | ---------------------------------------------------------------- |
+| Addition         | (z = x + y)  | ( \Delta z = \Delta x + \Delta y )                               |
+| Subtraction      | (z = x - y)  | ( \Delta z = \Delta x + \Delta y )                               |
+| Multiplication   | (z = xy)     | ( \frac{\Delta z}{z} = \frac{\Delta x}{x} + \frac{\Delta y}{y} ) |
+| Division         | (z = x/y)    | ( \frac{\Delta z}{z} = \frac{\Delta x}{x} + \frac{\Delta y}{y} ) |
+| Power            | (z = x^n)    | ( \frac{\Delta z}{z} = n \cdot \frac{\Delta x}{x} )              |
+| Constant × value | (z = ax)     | ( \Delta z = a \cdot \Delta x )                                  |
+| Logarithm        | (z = \ln(x)) | ( \Delta z = \frac{\Delta x}{x} )                                |
+| Exponential      | (z = e^x)    | ( \frac{\Delta z}{z} = \Delta x )                                |
