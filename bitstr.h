@@ -25,6 +25,7 @@ public:
     BitString(const bool sign, const std::vector<limb_t>& mantissa, int64_t exponent);//TODO: hide
     BitString(const BitString& other);
     BitString(const std::string& s);
+    BitString(const std::string& s, int precision);
     BitString(const int n);
     BitString(const double d);
 

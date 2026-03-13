@@ -2,7 +2,7 @@
 #include "bitstr.h"
 #include "bigint.h"
 
-#define DIV_PRECISION 448 // default target precision bits for arithmetic results
+#define DIV_PRECISION 384 // default target precision bits for arithmetic results
 
 using namespace std;
 using namespace BigInt;

@@ -3,7 +3,7 @@
 #include "bigint.h"
 
 #define DEC_FRAC_OUT 99 // How many decimal digits after comma to output
-#define BIN_FRAC_IN 448 // Input precision guard for stable 99-digit output through arithmetic chains
+#define BIN_FRAC_IN 384 // Input precision guard for stable 99-digit output through arithmetic chains
 
 using namespace std;
 using namespace BigInt;

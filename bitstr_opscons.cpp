@@ -17,6 +17,10 @@ BitString::BitString(const string& str) {
     *this = fromString(str);
 }
 
+BitString::BitString(const string& str, int precision) {
+    *this = fromString(str, precision);
+}
+
 BitString::BitString(const int n)
     : BitString(to_string(n)) {}
 

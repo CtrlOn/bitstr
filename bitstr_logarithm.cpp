@@ -2,7 +2,7 @@
 #include "bitstr.h"
 #include "bigint.h"
 
-#define LN_PRECISION 448 // default target precision bits for logarithm
+#define LN_PRECISION 384 // default target precision bits for logarithm
 
 using namespace std;
 using namespace BigInt;

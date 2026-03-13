@@ -2,7 +2,7 @@
 #include "bitstr.h"
 #include "bigint.h"
 
-#define SQRT_PRECISION 448 // default target precision bits for sqrt
+#define SQRT_PRECISION 384 // default target precision bits for sqrt
 
 using namespace std;
 using namespace BigInt;
@@ -24,17 +24,17 @@ BitString BitString::pow(const BitString& n, int e) {
 }
 
 BitString BitString::sqrt(const BitString& n, int precision) {
-    if (n.isZero()) return BitString(0);
+    if (n.isZero()) return BitString();
     if (n.sign) throw domain_error("Square root undefined for negative values");
 
     const int totalBits = bit_length(n.mantissa);
     int64_t initial2exp = (n.exponent + (int64_t)totalBits) / 2;
 
     // Better initial guess than 1.5: midpoint of sqrt([1,2)) narrows Newton steps.
-    BitString x(1.2071067811865475);
+    BitString x("1.2071067811865475");
     x.exponent += initial2exp;
 
-    BitString half(0.5);
+    BitString half("0.5");
     const BitString eps(0, {1}, -precision);
     const int maxIter = (precision / 8) + 12;
 

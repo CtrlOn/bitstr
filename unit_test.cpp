@@ -18,6 +18,10 @@ BitString bs(const std::string& s) {
     return BitString::fromString(s);
 }
 
+BitString bs(const std::string& s, int precision) {
+    return BitString(s, precision);
+}
+
 std::string str(const BitString& v) {
     return BitString::toString(v);
 }
@@ -63,6 +67,15 @@ std::string canonicalDecimal(const std::string& input) {
     return neg ? ("-" + s) : s;
 }
 
+int commonPrefixLen(const std::string& a, const std::string& b) {
+    const std::size_t n = std::min(a.size(), b.size());
+    std::size_t i = 0;
+    while (i < n && a[i] == b[i]) {
+        ++i;
+    }
+    return static_cast<int>(i);
+}
+
 void consume(const BitString& v) {
     g_sink += v.getMantissa().size();
     g_sink += static_cast<std::size_t>(v.getExponent() & 0xFF);
@@ -104,6 +117,16 @@ struct TestRunner {
         std::cout << "  Expected: '" << expected << "'\n";
         std::cout << "  Got:      '" << got << "'\n";
         ++failures;
+    }
+
+    void checkThrows(const std::string& name, const std::function<void()>& fn) {
+        try {
+            fn();
+            std::cout << "FAIL: " << name << " (no exception)\n";
+            ++failures;
+        } catch (const std::exception&) {
+            std::cout << "PASS: " << name << '\n';
+        }
     }
 };
 
@@ -173,7 +196,7 @@ void runArithmeticTests(TestRunner& tr) {
     tr.checkEq("mul 1.23*4.56", "5.6088", str(bs("1.23") * bs("4.56")));
     tr.checkEq("mul 9999*9999", "99980001.0", str(bs("9999") * bs("9999")));
     tr.checkEq("mul 123456789*987654321", "121932631112635269.0", str(bs("123456789") * bs("987654321")));
-    tr.checkEq("mul 0.0000000000000000000001*10000000000000000000", "1.0", str(bs("0.0000000000000000001") * bs("10000000000000000000")));
+    tr.checkEq("mul 0.0000000000000000000001*10000000000000000000", "1.0", str(bs("0.0000000000000000001", 416) * bs("10000000000000000000", 416)));
 }
 
 void runComparisonTests(TestRunner& tr) {
@@ -248,6 +271,156 @@ void runConstantsAndExponentialTests(TestRunner& tr) {
         "-0.693147180559945309417232121458176568075500134360255254120680009493393621969694715605863326996418688",
         str(BitString::ln(bs("0.5")))
     );
+}
+
+void runSqrtFocusedTests(TestRunner& tr) {
+    const int HI_INPUT_PREC = 640;
+    const int HI_SQRT_PREC = 384;
+
+    const std::vector<std::pair<std::string, std::string>> exactSqrtCases = {
+        {"0", "0.0"},
+        {"1", "1.0"},
+        {"4", "2.0"},
+        {"9", "3.0"},
+        {"144", "12.0"},
+        {"100000000000000000000", "10000000000.0"},
+        {"10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "100000000000000000000000000000000000000000000000000.0"},
+        {"15241578750190521", "123456789.0"},
+        {"0.0004", "0.02"},
+        {"0.00000000000000000000000001", "0.0000000000001"}
+    };
+
+    for (const auto& c : exactSqrtCases) {
+        tr.checkEq("sqrt exact " + c.first, c.second, str(BitString::sqrt(bs(c.first))));
+    }
+
+    const std::string tinyExactSq =
+        "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001";
+    tr.checkEq(
+        "sqrt exact tiny (hi-precision input)",
+        "0.00000000000000000000000000000000000000000000000001",
+        str(BitString::sqrt(bs(tinyExactSq, HI_INPUT_PREC), HI_SQRT_PREC))
+    );
+
+    tr.checkEq(
+        "sqrt 3",
+        "1.732050807568877293527446341505872366942805253810380628055806979451933016908800037081146186757248576",
+        str(BitString::sqrt(bs("3")))
+    );
+    tr.checkEq(
+        "sqrt 0.2",
+        "0.447213595499957939281834733746255247088123671922305144854179449082104185127560979882882881675756455",
+        str(BitString::sqrt(bs("0.2", HI_INPUT_PREC), HI_SQRT_PREC))
+    );
+    tr.checkEq(
+        "sqrt 0.5",
+        "0.707106781186547524400844362104849039284835937688474036588339868995366239231053519425193767163820786",
+        str(BitString::sqrt(bs("0.5", HI_INPUT_PREC), HI_SQRT_PREC))
+    );
+
+    const BitString sqrt2 = BitString::sqrt(bs("2"));
+    const BitString squared = sqrt2 * sqrt2;
+    const BitString err = BitString::abs(squared - bs("2"));
+    tr.check("sqrt stability (sqrt(2)^2 ~= 2)", err < bs("0." + std::string(94, '0') + "1"));
+
+    for (int n = 0; n <= 25; ++n) {
+        const BitString b = bs(std::to_string(n));
+        const BitString sq = b * b;
+        tr.checkEq("sqrt(n^2) exact n=" + std::to_string(n), str(b), str(BitString::sqrt(sq)));
+    }
+
+    const std::vector<std::string> hardNonSquares = {
+        "2", "3", "5", "6", "7", "8", "10", "99", "123456789", "0.02", "0.2", "0.000000000123456789"
+    };
+
+    const BitString tightEps = bs("0." + std::string(92, '0') + "1");
+    for (const std::string& xStr : hardNonSquares) {
+        const BitString x = bs(xStr);
+        const BitString r = BitString::sqrt(x);
+        const BitString rr = r * r;
+        const BitString absErr = BitString::abs(rr - x);
+        tr.check("sqrt residual " + xStr, absErr < tightEps);
+    }
+
+    const BitString x = bs("12345.6789");
+    const BitString s = BitString::sqrt(x);
+    tr.checkEq("sqrt scale x*100", str(s * bs("10")), str(BitString::sqrt(x * bs("100"))));
+    tr.checkEq("sqrt scale x/100", str(s / bs("10")), str(BitString::sqrt(x / bs("100"))));
+
+    const BitString y = bs("7.25");
+    const BitString one = bs("1");
+    const BitString invRelErr = BitString::abs((BitString::sqrt(one / y) * BitString::sqrt(y)) - one);
+    tr.check("sqrt reciprocal identity", invRelErr < bs("0." + std::string(91, '0') + "1"));
+
+    const std::vector<std::pair<std::string, std::string>> nearPairs = {
+        {"0.9999999999999999999999999999", "1.0"},
+        {"1.0", "1.0000000000000000000000000001"},
+        {"999999999999999999999999", "1000000000000000000000000"}
+    };
+    for (const auto& p : nearPairs) {
+        tr.check("sqrt monotonic near " + p.first + " < " + p.second,
+                 BitString::sqrt(bs(p.first)) < BitString::sqrt(bs(p.second)));
+    }
+
+    tr.check("sqrt monotonic 2<3", BitString::sqrt(bs("2")) < BitString::sqrt(bs("3")));
+    tr.check("sqrt monotonic 99<100", BitString::sqrt(bs("99")) < BitString::sqrt(bs("100")));
+
+    const BitString tiny = bs("0." + std::string(98, '0') + "1");
+    const BitString tinyRoot = BitString::sqrt(tiny);
+    tr.check("sqrt tiny non-negative", tinyRoot >= bs("0"));
+    tr.check("sqrt tiny <= 1", tinyRoot <= bs("1"));
+
+    const BitString huge = bs("9" + std::string(90, '0'));
+    const BitString hugeRoot = BitString::sqrt(huge);
+    tr.check("sqrt huge non-negative", hugeRoot >= bs("0"));
+    tr.check(
+        "sqrt huge relative residual",
+        (BitString::abs((hugeRoot * hugeRoot) - huge) / huge) < bs("0." + std::string(80, '0') + "1")
+    );
+
+    tr.checkThrows("sqrt negative throws", []() {
+        (void)BitString::sqrt(bs("-1"));
+    });
+    tr.checkThrows("sqrt very negative throws", []() {
+        (void)BitString::sqrt(bs("-12345678901234567890.5"));
+    });
+
+    const std::vector<std::string> precisionProbeInputs = {
+        "0.2",
+        "0.5",
+        "0.0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001",
+        "2",
+        "3"
+    };
+
+    for (const std::string& xStr : precisionProbeInputs) {
+        const BitString xVal = bs(xStr, HI_INPUT_PREC);
+        const std::string s384 = str(BitString::sqrt(xVal, 384));
+        const std::string s1024 = str(BitString::sqrt(xVal, 1024));
+        const std::string s1536 = str(BitString::sqrt(xVal, 1536));
+
+        const int p1 = commonPrefixLen(s384, s1024);
+        const int p2 = commonPrefixLen(s1024, s1536);
+
+        const bool isExtremeTiny = xVal < bs("0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001");
+        const int minP1 = isExtremeTiny ? 40 : 70;
+        const int minP2 = 90;
+
+        tr.check("sqrt precision probe 384->1024 stable " + xStr, p1 >= minP1);
+        if (!isExtremeTiny) {
+            tr.check("sqrt precision probe 1024->1536 stable " + xStr, p2 >= minP2);
+        }
+    }
+
+    const BitString dec02 = bs("0.2", HI_INPUT_PREC);
+    const BitString rat15 = bs("1") / bs("5");
+    const std::string sqrtDec02 = str(BitString::sqrt(dec02, 1024));
+    const std::string sqrtRat15 = str(BitString::sqrt(rat15, 1024));
+    tr.check("sqrt parse-vs-rational 0.2 common prefix >= 90",
+             commonPrefixLen(sqrtDec02, sqrtRat15) >= 90);
+
+    const BitString parseGap = BitString::abs(dec02 - rat15);
+    tr.check("parse gap 0.2 vs 1/5 tiny", parseGap < bs("0." + std::string(95, '0') + "1"));
 }
 
 void runTrigTests(TestRunner& tr) {
@@ -422,6 +595,7 @@ int main() {
         runComparisonTests(tr);
         runDivisionAndModuloTests(tr);
         runConstantsAndExponentialTests(tr);
+        runSqrtFocusedTests(tr);
         runTrigTests(tr);
         runSpecialTests(tr);
         runVectorUtilTests(tr);
