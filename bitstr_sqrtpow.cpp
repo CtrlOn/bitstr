@@ -9,9 +9,9 @@ using namespace BigInt;
 
 BitString BitString::pow(const BitString& n, int e) {
     if (e < 0) {
-        return div(BitString(1), pow(n, -e));
+        return div(BitString::ONE, pow(n, -e));
     }
-    BitString result(1);
+    BitString result(BitString::ONE);
     BitString base = n;
     while (e > 0) {
         if (e & 1) {

@@ -7,6 +7,8 @@
 #include <stdexcept>
 #include <algorithm>
 #include <sstream>
+#include <iomanip>
+#include <limits>
 #include <utility>
 
 #include "limb_config.h"
@@ -28,6 +30,7 @@ public:
     BitString(const std::string& s, int precision);
     BitString(const int n);
     BitString(const double d);
+    BitString(const double d, int precision);
 
     const static BitString ONE;
     const static BitString TWO;
@@ -35,6 +38,8 @@ public:
     const static BitString TAU;
     const static BitString HALF_PI;
     const static BitString LN_2;
+    const static BitString SQRT_2;
+    const static BitString INV_SQRT_2;
 
     // String conversions
     static BitString fromString(const std::string& s, int bitsPrecision);

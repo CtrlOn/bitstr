@@ -12,18 +12,15 @@ const BitString BitString::LN_2 = BitString::fromString(
     "542001481020570685733685520235758130557032670751635075961930727570828371435190307038623891673471123"
 );
 
-static const BitString SQRT2 = BitString::fromString(
+const BitString BitString::SQRT_2 = BitString::fromString(
     "1.414213562373095048801688724209698078569671875376948073176679737990732478462107038850387534327641572"
     "735013846230912297024924836055850737212644121497099935831413222665927505592755799950501152782060571"
 );
 
-static const BitString INV_SQRT2 = BitString::fromString(
+const BitString BitString::INV_SQRT_2 = BitString::fromString(
     "0.707106781186547524400844362104849039284835937688474036588339868995366239231053519425193767163820786"
     "367506923115456148512462418027925368606322060748549967915706611332963752796377899975250576391030285"
 );
-
-///FIXME: beyond this point downwards
-
 
 static BitString arctanhSeries(const BitString& t, int precision) {
 
@@ -63,11 +60,11 @@ BitString BitString::ln(const BitString& n, int precision) {
     m.normalize();
 
     // Tighten into [1/sqrt(2), sqrt(2)] for faster atanh convergence.
-    while (m > SQRT2) {
+    while (m > BitString::SQRT_2) {
         m = BitString::div(m, TWO, precision + limb_bits);
         k += 1;
     }
-    while (m < INV_SQRT2) {
+    while (m < BitString::INV_SQRT_2) {
         m = BitString::mul(m, TWO, precision + limb_bits);
         k -= 1;
     }
