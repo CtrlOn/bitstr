@@ -28,10 +28,13 @@ void BitString::bubbleSort(vector<BitString>& v) {
     if (n < 2) return;
 
     for (size_t i = 0; i < n - 1; ++i) {
+        bool swapped = false;
         for (size_t j = 0; j < n - i - 1; ++j) {
             if (v[j] > v[j + 1]) {
                 swap(v[j], v[j + 1]);
+                swapped = true;
             }
         }
+        if (!swapped) break;
     }
 }
