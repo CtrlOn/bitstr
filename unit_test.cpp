@@ -251,7 +251,7 @@ void runConstantsAndExponentialTests(TestRunner& tr) {
     tr.checkEq("pow out of precision", "0.0", str(BitString::pow(bs("0."+std::string(98, '0')+"1"), 2)));
     tr.checkEq("pow just outside precision", "0.0", str(BitString::pow(bs("0."+std::string(49, '0')+"1"), 2)));
     tr.checkEq("pow just inside precision", "0."+std::string(97, '0')+"1", str(BitString::pow(bs("0."+std::string(48, '0')+"1"), 2)));
-
+    tr.checkEq("pow high exponent", "246993291800582633412408838508522147770973.338523839623486918295183073939037543317536786611645694619197380356118903652336353379872657100896124", str(BitString::pow(bs("1.1", 1200), 1000)));
     tr.checkEq("sqrt 4", "2.0", str(BitString::sqrt(bs("4"))));
     tr.checkEq("sqrt 0.01", "0.1", str(BitString::sqrt(bs("0.01"))));
     tr.checkEq(
@@ -274,7 +274,7 @@ void runConstantsAndExponentialTests(TestRunner& tr) {
 }
 
 void runSqrtFocusedTests(TestRunner& tr) {
-    const int HI_INPUT_PREC = 640;
+    const int HI_INPUT_PREC = 384+128;
     const int HI_SQRT_PREC = 384;
 
     const std::vector<std::pair<std::string, std::string>> exactSqrtCases = {

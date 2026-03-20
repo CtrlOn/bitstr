@@ -3,6 +3,7 @@
 #include "bigint.h"
 
 #define SQRT_PRECISION 384 // default target precision bits for sqrt
+#define POW_TRUNCATE 2048 // truncate pow results to save performance
 
 using namespace std;
 using namespace BigInt;
@@ -16,8 +17,10 @@ BitString BitString::pow(const BitString& n, int e) {
     while (e > 0) {
         if (e & 1) {
             result = mul(result, base);
+            result = result.truncate(POW_TRUNCATE);
         }
         base = mul(base, base);
+        base = base.truncate(POW_TRUNCATE);
         e >>= 1;
     }
     return result;
@@ -47,7 +50,7 @@ BitString BitString::sqrt(const BitString& n, int precision) {
         x = newX;
     }
 
-    return x;
+    return x;//.truncate(static_cast<int>(x.exponent) + bit_length(x.mantissa) + precision);
 }
 
 BitString BitString::sqrt(const BitString& n) {

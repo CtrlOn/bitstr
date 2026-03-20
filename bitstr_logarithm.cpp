@@ -78,7 +78,7 @@ BitString BitString::ln(const BitString& n, int precision) {
     BitString result = lnM + kTerm;
 
     result.normalize();
-    return result.truncate(precision);
+    return result;//.truncate(precision);
 }
 
 BitString BitString::ln(const BitString& n) {
