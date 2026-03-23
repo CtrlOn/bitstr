@@ -27,7 +27,6 @@ BitString::BitString(const int n)
 /// Converts double to string that was most likely meant (at max precision, assuming decimal input)
 static string doubleToString(const double d) {
     ostringstream oss;
-    oss.setf(ios::fixed);
     oss << setprecision(numeric_limits<double>::digits10) << d;
     return oss.str();
 }
