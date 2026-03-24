@@ -65,6 +65,52 @@ static vector<limb_t> lowBits(const vector<limb_t>& v, int bits) {
     return out;
 }
 
+string BitString::doubleToString(const double d) {
+    ostringstream oss;
+    // Keep a human-friendly rounded representation first.
+    oss << setprecision(numeric_limits<double>::digits10) << d;
+    string s = oss.str();
+
+    const size_t ePos = s.find_first_of("eE");
+    if (ePos == string::npos) {
+        return s;
+    }
+
+    const bool neg = !s.empty() && s[0] == '-';
+    const size_t mantStart = neg ? 1 : 0;
+    const string mantissa = s.substr(mantStart, ePos - mantStart);
+    const int expVal = stoi(s.substr(ePos + 1));
+
+    string digits;
+    int fracDigits = 0;
+    const size_t dotPos = mantissa.find('.');
+    if (dotPos == string::npos) {
+        digits = mantissa;
+    } else {
+        digits = mantissa.substr(0, dotPos) + mantissa.substr(dotPos + 1);
+        fracDigits = static_cast<int>(mantissa.size() - dotPos - 1);
+    }
+
+    int decimalPos = static_cast<int>(digits.size()) - fracDigits + expVal;
+    string out;
+    if (neg) out.push_back('-');
+
+    if (decimalPos <= 0) {
+        out += "0.";
+        out.append(static_cast<size_t>(-decimalPos), '0');
+        out += digits;
+    } else if (decimalPos >= static_cast<int>(digits.size())) {
+        out += digits;
+        out.append(static_cast<size_t>(decimalPos - static_cast<int>(digits.size())), '0');
+    } else {
+        out += digits.substr(0, static_cast<size_t>(decimalPos));
+        out.push_back('.');
+        out += digits.substr(static_cast<size_t>(decimalPos));
+    }
+
+    return out;
+}
+
 BitString BitString::fromString(const string& str, int bitsPrecision) {
     if (str.empty()) {
         throw invalid_argument("Empty number string");

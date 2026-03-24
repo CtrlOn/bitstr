@@ -20,6 +20,7 @@ private:
     int64_t exponent;
 
     void normalize();
+    static std::string doubleToString(double d);
     static int compareMag(const BitString& a, const BitString& b);
     BitString truncate(int bits) const;
 public:
