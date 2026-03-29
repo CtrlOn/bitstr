@@ -22,6 +22,7 @@ private:
     void normalize();
     static std::string doubleToString(double d);
     static int compareMag(const BitString& a, const BitString& b);
+    static void addTo(BitString& acc, const BitString& x);
     BitString truncate(int bits) const;
 public:
     BitString();

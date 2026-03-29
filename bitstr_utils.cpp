@@ -6,10 +6,21 @@ using namespace std;
 BitString BitString::avg(const vector<BitString>& v) {
     if (v.empty()) return BitString();
 
-    BitString sum = v[0];
-    for (size_t i = 1; i < v.size(); ++i) {
-        sum = add(sum, v[i]);
+    BitString sum;
+    bool hasNonZero = false;
+
+    for (const BitString& x : v) {
+        if (x.isZero()) continue;
+        if (!hasNonZero) {
+            sum = x;
+            hasNonZero = true;
+        } else {
+            addTo(sum, x);
+        }
     }
+
+    if (!hasNonZero) return BitString();
+
     return div(sum, BitString(static_cast<int>(v.size())));
 }
 

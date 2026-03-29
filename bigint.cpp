@@ -232,6 +232,40 @@ vector<limb_t> bigint_add(const vector<limb_t>& a, const vector<limb_t>& b) {
     return result;
 }
 
+void bigint_add_inplace(vector<limb_t>& a, const vector<limb_t>& b) {
+    if (b.empty()) return;
+    if (a.size() < b.size()) a.resize(b.size(), 0);
+
+    wide_limb_t carry = 0;
+    size_t i = 0;
+
+    for (; i < b.size(); ++i) {
+        wide_limb_t sum = wide_limb_t(a[i]) + b[i] + carry;
+        a[i] = static_cast<limb_t>(sum);
+        carry = sum >> limb_bits;
+    }
+
+    for (; i < a.size() && carry; ++i) {
+        wide_limb_t sum = wide_limb_t(a[i]) + carry;
+        a[i] = static_cast<limb_t>(sum);
+        carry = sum >> limb_bits;
+    }
+
+    if (carry) a.push_back(static_cast<limb_t>(carry));
+}
+
+void bigint_sub_inplace(vector<limb_t>& a, const vector<limb_t>& b) {
+    wide_limb_t borrow = 0;
+    for (size_t i = 0; i < a.size(); ++i) {
+        wide_limb_t aWord = a[i];
+        wide_limb_t bWord = i < b.size() ? b[i] : 0;
+        wide_limb_t diff = aWord - bWord - borrow;
+        borrow = (aWord < bWord + borrow) ? 1 : 0;
+        a[i] = static_cast<limb_t>(diff);
+    }
+    while (a.size() > 1 && a.back() == 0) a.pop_back();
+}
+
 void bigint_mul_limb(vector<limb_t>& a, limb_t b) {
     wide_limb_t carry = 0;
     for (size_t i = 0; i < a.size(); ++i) {

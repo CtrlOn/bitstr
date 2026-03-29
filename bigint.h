@@ -30,6 +30,9 @@ void bigint_mul_limb(std::vector<limb_t>& a, limb_t b);
 
 void bigint_add_limb(std::vector<limb_t>& a, limb_t b);
 
+void bigint_add_inplace(std::vector<limb_t>& a, const std::vector<limb_t>& b);
+void bigint_sub_inplace(std::vector<limb_t>& a, const std::vector<limb_t>& b);
+
 std::vector<limb_t> bigint_add(const std::vector<limb_t>& a, const std::vector<limb_t>& b);
 
 std::vector<limb_t> bigint_sub(const std::vector<limb_t>& a, const std::vector<limb_t>& b);

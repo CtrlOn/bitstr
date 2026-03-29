@@ -18,10 +18,14 @@ void BitString::normalize() {
         return;
     }
 
-    // Remove trailing zero limbs.
-    while (mantissa[0] == 0 && mantissa.size() > 1) {
-        mantissa.erase(mantissa.begin());
-        exponent += limb_bits;
+    // Remove trailing zero limbs with one erase to avoid repeated O(n) shifts.
+    size_t lowZeroLimbs = 0;
+    while (lowZeroLimbs + 1 < mantissa.size() && mantissa[lowZeroLimbs] == 0) {
+        ++lowZeroLimbs;
+    }
+    if (lowZeroLimbs > 0) {
+        mantissa.erase(mantissa.begin(), mantissa.begin() + static_cast<ptrdiff_t>(lowZeroLimbs));
+        exponent += static_cast<int64_t>(lowZeroLimbs) * limb_bits;
     }
 
     // Remove remaining trailing zeros
@@ -91,41 +95,51 @@ int BitString::compareMag(const BitString& a, const BitString& b) {
     return 0;
 }
 
+void BitString::addTo(BitString& acc, const BitString& x) {
+    if (x.isZero()) return;
+    if (acc.isZero()) {
+        acc = x;
+        return;
+    }
+
+    vector<limb_t> shifted;
+    const vector<limb_t>* xMantissa = &x.mantissa;
+
+    // Align exponents to the smaller one by left-shifting the larger.
+    if (acc.exponent > x.exponent) {
+        left_shift(acc.mantissa, static_cast<unsigned int>(acc.exponent - x.exponent));
+        acc.exponent = x.exponent;
+    } else if (x.exponent > acc.exponent) {
+        shifted = x.mantissa;
+        left_shift(shifted, static_cast<unsigned int>(x.exponent - acc.exponent));
+        xMantissa = &shifted;
+    }
+
+    if (acc.sign == x.sign) {
+        BigInt::bigint_add_inplace(acc.mantissa, *xMantissa);
+    } else {
+        const int cmp = BigInt::bigint_cmp(acc.mantissa, *xMantissa);
+        if (cmp == 0) {
+            acc = BitString();
+            return;
+        }
+        if (cmp > 0) {
+            BigInt::bigint_sub_inplace(acc.mantissa, *xMantissa);
+        } else {
+            vector<limb_t> next = *xMantissa;
+            BigInt::bigint_sub_inplace(next, acc.mantissa);
+            acc.mantissa.swap(next);
+            acc.sign = x.sign;
+        }
+    }
+
+    acc.normalize();
+}
+
 /// Both sub and add here
 BitString BitString::add(const BitString& l, const BitString& r) {
-    if (l.isZero()) return r;
-    if (r.isZero()) return l;
-
-    BitString a = l;
-    BitString b = r;
-    // Align exponents to the smaller one by left‑shifting the larger
-    if (a.exponent > b.exponent) {
-        left_shift(a.mantissa, a.exponent - b.exponent);
-        a.exponent = b.exponent;
-    } else if (b.exponent > a.exponent) {
-        left_shift(b.mantissa, b.exponent - a.exponent);
-        b.exponent = a.exponent;
-    }
-
-    BitString result;
-    result.exponent = a.exponent;
-
-    if (a.sign == b.sign) {
-        // Magnitude addition
-        result.sign = a.sign;
-        result.mantissa = BigInt::bigint_add(a.mantissa, b.mantissa);
-    } else {
-        // Magnitude subtraction
-        int cmp = compareMag(a, b);
-        if (cmp == 0) return BitString(); // a - a = 0
-        const BitString* great = &a;
-        const BitString* low  = &b;
-        if (cmp < 0) swap(great, low);
-        result.sign = great->sign;
-        result.mantissa = BigInt::bigint_sub(great->mantissa, low->mantissa);
-    }
-
-    result.normalize();
+    BitString result = l;
+    addTo(result, r);
     return result;
 }
 
