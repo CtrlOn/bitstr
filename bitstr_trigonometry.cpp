@@ -9,12 +9,23 @@ static pair<BitString, BitString> sincosCore(const BitString& n) {
     BitString x = n % BitString::TAU;
     if (x < 0) x = x + BitString::TAU;
 
+    static const BitString threeHalfPi = BitString::PI + BitString::HALF_PI;
     int quadrant = 0;
-    while (x >= BitString::HALF_PI) {
+
+    // x is in [0, TAU), so three comparisons determine the quadrant without
+    // requiring any BitString-to-int conversion.
+    if (x < BitString::HALF_PI) {
+        quadrant = 0;
+    } else if (x < BitString::PI) {
+        quadrant = 1;
         x = x - BitString::HALF_PI;
-        ++quadrant;
+    } else if (x < threeHalfPi) {
+        quadrant = 2;
+        x = x - BitString::PI;
+    } else {
+        quadrant = 3;
+        x = x - threeHalfPi;
     }
-    quadrant &= 3;
 
     // keep halving until angle is tiny enough for short Taylor series
     int k = 0;
