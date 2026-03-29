@@ -65,6 +65,28 @@ static vector<limb_t> lowBits(const vector<limb_t>& v, int bits) {
     return out;
 }
 
+static limb_t quotientByPow2LowWord(const vector<limb_t>& v, int shiftBits) {
+    if (shiftBits <= 0) {
+        return v.empty() ? 0 : v[0];
+    }
+
+    const size_t wordShift = static_cast<size_t>(shiftBits / limb_bits);
+    const int bitShift = shiftBits % limb_bits;
+    if (wordShift >= v.size()) {
+        return 0;
+    }
+
+    limb_t out = v[wordShift];
+    if (bitShift != 0) {
+        out = static_cast<limb_t>(out >> bitShift);
+        const size_t hi = wordShift + 1;
+        if (hi < v.size()) {
+            out |= static_cast<limb_t>(v[hi] << (limb_bits - bitShift));
+        }
+    }
+    return out;
+}
+
 string BitString::doubleToString(const double d) {
     ostringstream oss;
     // Keep a human-friendly rounded representation first.
@@ -257,21 +279,25 @@ string BitString::toString(const BitString& value, int decFracDigits) {
     string fracDigits;
     const int totalFracDigits = decFracDigits + 1;
 
+    vector<vector<limb_t>> digitScaled(10, vector<limb_t>(1, 0));
+    for (int d = 1; d <= 9; ++d) {
+        digitScaled[d][0] = static_cast<limb_t>(d);
+        left_shift(digitScaled[d], fracBits);
+    }
+
     for (int i = 0; i < totalFracDigits; ++i) {
         bigint_mul_limb(remainder, 10);
 
-        vector<limb_t> digitVec = remainder;
-        right_shift(digitVec, fracBits);
-        limb_t digit = digitVec.empty() ? 0 : digitVec[0];
+        limb_t digit = quotientByPow2LowWord(remainder, fracBits);
         if (digit > 9) {
             digit = 9;
         }
 
         fracDigits.push_back('0' + (char)digit);
 
-        vector<limb_t> sub = {digit};
-        left_shift(sub, fracBits);
-        remainder = bigint_sub(remainder, sub);
+        if (digit != 0) {
+            bigint_sub_inplace(remainder, digitScaled[static_cast<size_t>(digit)]);
+        }
 
         if (isZeroVec(remainder)) {
             break;
