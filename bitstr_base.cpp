@@ -5,37 +5,6 @@
 using namespace std;
 using namespace BigInt;
 
-namespace {
-
-size_t shifted_size(const vector<limb_t>& m, unsigned int shiftBits) {
-    const size_t wordShift = shiftBits / limb_bits;
-    const unsigned int bitShift = shiftBits % limb_bits;
-    return m.size() + wordShift + (bitShift ? 1U : 0U);
-}
-
-limb_t shifted_limb_at(const vector<limb_t>& m, unsigned int shiftBits, size_t idx) {
-    const size_t wordShift = shiftBits / limb_bits;
-    const unsigned int bitShift = shiftBits % limb_bits;
-
-    if (idx < wordShift) return 0;
-    const size_t j = idx - wordShift;
-    if (j >= m.size()) return 0;
-
-    if (bitShift == 0U) {
-        return m[j];
-    }
-
-    const wide_limb_t lo = static_cast<wide_limb_t>(m[j]) << bitShift;
-    wide_limb_t hi = 0;
-    if (j > 0) {
-        hi = static_cast<wide_limb_t>(m[j - 1]) >> (limb_bits - bitShift);
-    }
-
-    return static_cast<limb_t>(lo | hi);
-}
-
-} // namespace
-
 const BitString BitString::ONE = BitString(false, {1}, 0);
 const BitString BitString::TWO = BitString(false, {1}, 1);
 
@@ -107,13 +76,13 @@ int BitString::compareMag(const BitString& a, const BitString& b) {
     const unsigned int aShift = static_cast<unsigned int>(a.exponent - minExp);
     const unsigned int bShift = static_cast<unsigned int>(b.exponent - minExp);
 
-    const size_t aSize = shifted_size(a.mantissa, aShift);
-    const size_t bSize = shifted_size(b.mantissa, bShift);
+    const size_t aSize = BigInt::shifted_size(a.mantissa, aShift);
+    const size_t bSize = BigInt::shifted_size(b.mantissa, bShift);
     const size_t maxSize = max(aSize, bSize);
 
     for (int i = static_cast<int>(maxSize) - 1; i >= 0; --i) {
-        const limb_t aw = shifted_limb_at(a.mantissa, aShift, static_cast<size_t>(i));
-        const limb_t bw = shifted_limb_at(b.mantissa, bShift, static_cast<size_t>(i));
+        const limb_t aw = BigInt::shifted_limb_at(a.mantissa, aShift, static_cast<size_t>(i));
+        const limb_t bw = BigInt::shifted_limb_at(b.mantissa, bShift, static_cast<size_t>(i));
         if (aw != bw) {
             return aw < bw ? -1 : 1;
         }

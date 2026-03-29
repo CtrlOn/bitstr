@@ -310,4 +310,95 @@ void bigint_add_limb(vector<limb_t>& a, limb_t b) {
     if (carry) a.push_back(static_cast<limb_t>(carry));
 }
 
+limb_t bigint_div_limb_inplace(vector<limb_t>& v, limb_t divisor) {
+    wide_limb_t rem = 0;
+    for (int i = static_cast<int>(v.size()) - 1; i >= 0; --i) {
+        const wide_limb_t cur = (rem << limb_bits) | v[static_cast<size_t>(i)];
+        v[static_cast<size_t>(i)] = static_cast<limb_t>(cur / divisor);
+        rem = cur % divisor;
+    }
+
+    while (v.size() > 1 && v.back() == 0) {
+        v.pop_back();
+    }
+
+    return static_cast<limb_t>(rem);
+}
+
+bool isZeroVec(const vector<limb_t>& v) {
+    return v.size() == 1 && v[0] == 0;
+}
+
+vector<limb_t> lowBits(const vector<limb_t>& v, int bits) {
+    if (bits <= 0) {
+        return {0};
+    }
+
+    vector<limb_t> out((bits + limb_bits - 1) / limb_bits, 0);
+    const size_t copyWords = min(out.size(), v.size());
+    for (size_t i = 0; i < copyWords; ++i) {
+        out[i] = v[i];
+    }
+
+    const int remBits = bits % limb_bits;
+    if (remBits != 0 && !out.empty()) {
+        const wide_limb_t mask = (wide_limb_t(1) << remBits) - 1;
+        out.back() &= static_cast<limb_t>(mask);
+    }
+
+    while (out.size() > 1 && out.back() == 0) {
+        out.pop_back();
+    }
+    return out;
+}
+
+limb_t quotientByPow2LowWord(const vector<limb_t>& v, int shiftBits) {
+    if (shiftBits <= 0) {
+        return v.empty() ? 0 : v[0];
+    }
+
+    const size_t wordShift = static_cast<size_t>(shiftBits / limb_bits);
+    const int bitShift = shiftBits % limb_bits;
+    if (wordShift >= v.size()) {
+        return 0;
+    }
+
+    limb_t out = v[wordShift];
+    if (bitShift != 0) {
+        out = static_cast<limb_t>(out >> bitShift);
+        const size_t hi = wordShift + 1;
+        if (hi < v.size()) {
+            out |= static_cast<limb_t>(v[hi] << (limb_bits - bitShift));
+        }
+    }
+    return out;
+}
+
+size_t shifted_size(const vector<limb_t>& m, unsigned int shiftBits) {
+    const size_t wordShift = shiftBits / limb_bits;
+    const unsigned int bitShift = shiftBits % limb_bits;
+    return m.size() + wordShift + (bitShift ? 1U : 0U);
+}
+
+limb_t shifted_limb_at(const vector<limb_t>& m, unsigned int shiftBits, size_t idx) {
+    const size_t wordShift = shiftBits / limb_bits;
+    const unsigned int bitShift = shiftBits % limb_bits;
+
+    if (idx < wordShift) return 0;
+    const size_t j = idx - wordShift;
+    if (j >= m.size()) return 0;
+
+    if (bitShift == 0U) {
+        return m[j];
+    }
+
+    const wide_limb_t lo = static_cast<wide_limb_t>(m[j]) << bitShift;
+    wide_limb_t hi = 0;
+    if (j > 0) {
+        hi = static_cast<wide_limb_t>(m[j - 1]) >> (limb_bits - bitShift);
+    }
+
+    return static_cast<limb_t>(lo | hi);
+}
+
 } // namespace BigInt

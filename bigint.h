@@ -39,6 +39,18 @@ std::vector<limb_t> bigint_sub(const std::vector<limb_t>& a, const std::vector<l
 
 std::vector<limb_t> bigint_mul(const std::vector<limb_t>& a, const std::vector<limb_t>& b);
 
+limb_t bigint_div_limb_inplace(std::vector<limb_t>& v, limb_t divisor);
+
+bool isZeroVec(const std::vector<limb_t>& v);
+
+std::vector<limb_t> lowBits(const std::vector<limb_t>& v, int bits);
+
+limb_t quotientByPow2LowWord(const std::vector<limb_t>& v, int shiftBits);
+
+size_t shifted_size(const std::vector<limb_t>& m, unsigned int shiftBits);
+
+limb_t shifted_limb_at(const std::vector<limb_t>& m, unsigned int shiftBits, size_t idx);
+
 } // namespace
 
 #endif // BIGINT_H

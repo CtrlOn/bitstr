@@ -8,32 +8,7 @@
 using namespace std;
 using namespace BigInt;
 
-static vector<limb_t> stringToBigInt(const string& str) {
-    vector<limb_t> result = {0};
-    for (char c : str) {
-        int digit = c - '0';
-        bigint_mul_limb(result, 10);
-        bigint_add_limb(result, static_cast<limb_t>(digit));
-    }
-    return result;
-}
-
-static limb_t bigint_div_limb_inplace(vector<limb_t>& v, limb_t divisor) {
-    wide_limb_t rem = 0;
-    for (int i = static_cast<int>(v.size()) - 1; i >= 0; --i) {
-        const wide_limb_t cur = (rem << limb_bits) | v[static_cast<size_t>(i)];
-        v[static_cast<size_t>(i)] = static_cast<limb_t>(cur / divisor);
-        rem = cur % divisor;
-    }
-
-    while (v.size() > 1 && v.back() == 0) {
-        v.pop_back();
-    }
-
-    return static_cast<limb_t>(rem);
-}
-
-static string bigIntToString(const vector<limb_t>& num) {
+string bigIntToString(const vector<limb_t>& num) {
     if (num.size() == 1 && num[0] == 0) return "0";
     vector<limb_t> temp = num;
 
@@ -55,53 +30,14 @@ static string bigIntToString(const vector<limb_t>& num) {
     return out;
 }
 
-static bool isZeroVec(const vector<limb_t>& v) {
-    return v.size() == 1 && v[0] == 0;
-}
-
-static vector<limb_t> lowBits(const vector<limb_t>& v, int bits) {
-    if (bits <= 0) {
-        return {0};
+vector<limb_t> stringToBigInt(const string& str) {
+    vector<limb_t> result = {0};
+    for (char c : str) {
+        int digit = c - '0';
+        bigint_mul_limb(result, 10);
+        bigint_add_limb(result, static_cast<limb_t>(digit));
     }
-
-    vector<limb_t> out((bits + limb_bits - 1) / limb_bits, 0);
-    const size_t copyWords = min(out.size(), v.size());
-    for (size_t i = 0; i < copyWords; ++i) {
-        out[i] = v[i];
-    }
-
-    const int remBits = bits % limb_bits;
-    if (remBits != 0 && !out.empty()) {
-        const wide_limb_t mask = (wide_limb_t(1) << remBits) - 1;
-        out.back() &= static_cast<limb_t>(mask);
-    }
-
-    while (out.size() > 1 && out.back() == 0) {
-        out.pop_back();
-    }
-    return out;
-}
-
-static limb_t quotientByPow2LowWord(const vector<limb_t>& v, int shiftBits) {
-    if (shiftBits <= 0) {
-        return v.empty() ? 0 : v[0];
-    }
-
-    const size_t wordShift = static_cast<size_t>(shiftBits / limb_bits);
-    const int bitShift = shiftBits % limb_bits;
-    if (wordShift >= v.size()) {
-        return 0;
-    }
-
-    limb_t out = v[wordShift];
-    if (bitShift != 0) {
-        out = static_cast<limb_t>(out >> bitShift);
-        const size_t hi = wordShift + 1;
-        if (hi < v.size()) {
-            out |= static_cast<limb_t>(v[hi] << (limb_bits - bitShift));
-        }
-    }
-    return out;
+    return result;
 }
 
 string BitString::doubleToString(const double d) {
@@ -288,7 +224,7 @@ string BitString::toString(const BitString& value, int decFracDigits) {
 
     string intStr = bigIntToString(intPart);
 
-    if (isZeroVec(remainder)) {
+    if (BigInt::isZeroVec(remainder)) {
         result += intStr + ".0";
         return result;
     }
@@ -305,7 +241,7 @@ string BitString::toString(const BitString& value, int decFracDigits) {
     for (int i = 0; i < totalFracDigits; ++i) {
         bigint_mul_limb(remainder, 10);
 
-        limb_t digit = quotientByPow2LowWord(remainder, fracBits);
+        limb_t digit = BigInt::quotientByPow2LowWord(remainder, fracBits);
         if (digit > 9) {
             digit = 9;
         }
@@ -316,7 +252,7 @@ string BitString::toString(const BitString& value, int decFracDigits) {
             bigint_sub_inplace(remainder, digitScaled[static_cast<size_t>(digit)]);
         }
 
-        if (isZeroVec(remainder)) {
+        if (BigInt::isZeroVec(remainder)) {
             break;
         }
     }
