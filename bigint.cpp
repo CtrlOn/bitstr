@@ -20,7 +20,16 @@ void left_shift(vector<limb_t>& v, unsigned int bits) {
         }
         if (carry) v.push_back(carry);
     }
-    if (intShift) v.insert(v.begin(), intShift, 0);
+    if (intShift) {
+        const size_t oldSize = v.size();
+        v.resize(oldSize + static_cast<size_t>(intShift));
+        for (size_t i = oldSize; i > 0; --i) {
+            v[i - 1 + static_cast<size_t>(intShift)] = v[i - 1];
+        }
+        for (int i = 0; i < intShift; ++i) {
+            v[static_cast<size_t>(i)] = 0;
+        }
+    }
 }
 
 void right_shift(vector<limb_t>& v, unsigned int bits) {
@@ -33,7 +42,14 @@ void right_shift(vector<limb_t>& v, unsigned int bits) {
         return;
     }
 
-    v.erase(v.begin(), v.begin() + intShift);
+    if (intShift) {
+        const size_t shift = static_cast<size_t>(intShift);
+        const size_t newSize = v.size() - shift;
+        for (size_t i = 0; i < newSize; ++i) {
+            v[i] = v[i + shift];
+        }
+        v.resize(newSize);
+    }
 
     if (bitShift) {
         limb_t carry = 0;
@@ -56,8 +72,15 @@ int bit_length(const vector<limb_t>& v) {
 }
 
 int bigint_cmp(const vector<limb_t>& a, const vector<limb_t>& b) {
-    if (a.size() != b.size()) return a.size() < b.size() ? -1 : 1;
-    for (int i = (int)a.size() - 1; i >= 0; --i) {
+    int ai = static_cast<int>(a.size()) - 1;
+    int bi = static_cast<int>(b.size()) - 1;
+
+    while (ai > 0 && a[static_cast<size_t>(ai)] == 0) --ai;
+    while (bi > 0 && b[static_cast<size_t>(bi)] == 0) --bi;
+
+    if (ai != bi) return ai < bi ? -1 : 1;
+
+    for (int i = ai; i >= 0; --i) {
         if (a[i] != b[i]) return a[i] < b[i] ? -1 : 1;
     }
     return 0;

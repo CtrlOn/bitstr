@@ -5,6 +5,37 @@
 using namespace std;
 using namespace BigInt;
 
+namespace {
+
+size_t shifted_size(const vector<limb_t>& m, unsigned int shiftBits) {
+    const size_t wordShift = shiftBits / limb_bits;
+    const unsigned int bitShift = shiftBits % limb_bits;
+    return m.size() + wordShift + (bitShift ? 1U : 0U);
+}
+
+limb_t shifted_limb_at(const vector<limb_t>& m, unsigned int shiftBits, size_t idx) {
+    const size_t wordShift = shiftBits / limb_bits;
+    const unsigned int bitShift = shiftBits % limb_bits;
+
+    if (idx < wordShift) return 0;
+    const size_t j = idx - wordShift;
+    if (j >= m.size()) return 0;
+
+    if (bitShift == 0U) {
+        return m[j];
+    }
+
+    const wide_limb_t lo = static_cast<wide_limb_t>(m[j]) << bitShift;
+    wide_limb_t hi = 0;
+    if (j > 0) {
+        hi = static_cast<wide_limb_t>(m[j - 1]) >> (limb_bits - bitShift);
+    }
+
+    return static_cast<limb_t>(lo | hi);
+}
+
+} // namespace
+
 const BitString BitString::ONE = BitString(false, {1}, 0);
 const BitString BitString::TWO = BitString(false, {1}, 1);
 
@@ -72,23 +103,19 @@ int BitString::compareMag(const BitString& a, const BitString& b) {
 
     if (aLength != bLength) return aLength < bLength ? -1 : 1;
 
-    int expDiff = static_cast<int>(a.exponent - b.exponent);
-    vector<limb_t> aMant = a.mantissa;
-    vector<limb_t> bMant = b.mantissa;
-    if (expDiff > 0) {
-        // a has more leading zeros, shift it right
-        left_shift(aMant, expDiff);
-    } else if (expDiff < 0) {
-        // b has more leading zeros, shift it right
-        left_shift(bMant, -expDiff);
-    }
-    const size_t maxSize = max(aMant.size(), bMant.size());
-    if (aMant.size() < maxSize) aMant.resize(maxSize, 0);
-    if (bMant.size() < maxSize) bMant.resize(maxSize, 0);
+    const int64_t minExp = min(a.exponent, b.exponent);
+    const unsigned int aShift = static_cast<unsigned int>(a.exponent - minExp);
+    const unsigned int bShift = static_cast<unsigned int>(b.exponent - minExp);
+
+    const size_t aSize = shifted_size(a.mantissa, aShift);
+    const size_t bSize = shifted_size(b.mantissa, bShift);
+    const size_t maxSize = max(aSize, bSize);
 
     for (int i = static_cast<int>(maxSize) - 1; i >= 0; --i) {
-        if (aMant[static_cast<size_t>(i)] != bMant[static_cast<size_t>(i)]) {
-            return aMant[static_cast<size_t>(i)] < bMant[static_cast<size_t>(i)] ? -1 : 1;
+        const limb_t aw = shifted_limb_at(a.mantissa, aShift, static_cast<size_t>(i));
+        const limb_t bw = shifted_limb_at(b.mantissa, bShift, static_cast<size_t>(i));
+        if (aw != bw) {
+            return aw < bw ? -1 : 1;
         }
     }
 
@@ -196,6 +223,7 @@ BitString BitString::abs(const BitString& x) {
 }
 
 bool BitString::isZero() const {
+    if (mantissa.size() == 1 && mantissa[0] == 0) return true;
     for (limb_t w : mantissa) {
         if (w != 0) return false;
     }

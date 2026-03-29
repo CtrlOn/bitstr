@@ -22,7 +22,36 @@ BitString::BitString(const string& str, int precision) {
 }
 
 BitString::BitString(const int n)
-    : BitString(to_string(n)) {}
+    : sign(false), mantissa(1, 0), exponent(0) {
+    int64_t value = static_cast<int64_t>(n);
+    if (value == 0) {
+        return;
+    }
+
+    sign = value < 0;
+    uint64_t mag = sign
+        ? static_cast<uint64_t>(-(value + 1)) + 1ULL
+        : static_cast<uint64_t>(value);
+
+    mantissa.clear();
+    if (limb_bits == 64) {
+        mantissa.push_back(static_cast<limb_t>(mag));
+    } else {
+        const unsigned int chunkBits = limb_bits >= 63 ? 63U : static_cast<unsigned int>(limb_bits);
+        const uint64_t limbMask = (1ULL << chunkBits) - 1ULL;
+        while (mag != 0) {
+            mantissa.push_back(static_cast<limb_t>(mag & limbMask));
+            mag >>= chunkBits;
+        }
+    }
+
+    if (mantissa.empty()) {
+        mantissa.push_back(0);
+        sign = false;
+    }
+
+    normalize();
+}
 
 BitString::BitString(const double d) {
     *this = fromString(doubleToString(d));
