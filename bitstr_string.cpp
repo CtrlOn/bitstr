@@ -18,24 +18,41 @@ static vector<limb_t> stringToBigInt(const string& str) {
     return result;
 }
 
+static limb_t bigint_div_limb_inplace(vector<limb_t>& v, limb_t divisor) {
+    wide_limb_t rem = 0;
+    for (int i = static_cast<int>(v.size()) - 1; i >= 0; --i) {
+        const wide_limb_t cur = (rem << limb_bits) | v[static_cast<size_t>(i)];
+        v[static_cast<size_t>(i)] = static_cast<limb_t>(cur / divisor);
+        rem = cur % divisor;
+    }
+
+    while (v.size() > 1 && v.back() == 0) {
+        v.pop_back();
+    }
+
+    return static_cast<limb_t>(rem);
+}
+
 static string bigIntToString(const vector<limb_t>& num) {
     if (num.size() == 1 && num[0] == 0) return "0";
     vector<limb_t> temp = num;
-    string digits;
+
+    vector<uint32_t> chunks;
+    const limb_t base10e9 = static_cast<limb_t>(1000000000U);
     while (!(temp.size() == 1 && temp[0] == 0)) {
-        wide_limb_t remainder = 0;
-        for (int i = (int)temp.size() - 1; i >= 0; --i) {
-            wide_limb_t current = (remainder << limb_bits) | temp[i];
-            temp[i] = static_cast<limb_t>(current / 10);
-            remainder = current % 10;
-        }
-        digits.push_back('0' + (char)remainder);
-        while (temp.size() > 1 && temp.back() == 0) {
-            temp.pop_back();
-        }
+        const limb_t rem = bigint_div_limb_inplace(temp, base10e9);
+        chunks.push_back(static_cast<uint32_t>(rem));
     }
-    reverse(digits.begin(), digits.end());
-    return digits;
+
+    string out;
+    out = to_string(chunks.back());
+    for (int i = static_cast<int>(chunks.size()) - 2; i >= 0; --i) {
+        string part = to_string(chunks[static_cast<size_t>(i)]);
+        out.append(static_cast<size_t>(9 - part.size()), '0');
+        out += part;
+    }
+
+    return out;
 }
 
 static bool isZeroVec(const vector<limb_t>& v) {
@@ -185,14 +202,14 @@ BitString BitString::fromString(const string& str, int bitsPrecision) {
         bigint_mul_limb(denominator, 10);
     }
 
-    vector<limb_t> fracBits = {0};
+    vector<limb_t> fracBits(static_cast<size_t>((bitsPrecision + limb_bits - 1) / limb_bits), 0);
+    if (fracBits.empty()) fracBits.push_back(0);
     vector<limb_t> remainder = numerator;
     for (int bit = 0; bit < bitsPrecision; ++bit) {
         left_shift(remainder, 1);
-        left_shift(fracBits, 1);
         if (bigint_cmp(remainder, denominator) >= 0) {
-            bigint_add_limb(fracBits, 1);
-            remainder = bigint_sub(remainder, denominator);
+            bigint_add_pow2(fracBits, bitsPrecision - 1 - bit);
+            bigint_sub_inplace(remainder, denominator);
         }
     }
 
